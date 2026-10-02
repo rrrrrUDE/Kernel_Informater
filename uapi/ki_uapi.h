@@ -27,18 +27,13 @@
 enum ki_ioctl_nr {
 	KI_IOCTL_NR_GET_VERSION = 0,
 	KI_IOCTL_NR_GET_STATUS,
-	KI_IOCTL_NR_SAFE_MODE,
-	KI_IOCTL_NR_CONFIG_SET,
-	KI_IOCTL_NR_CONFIG_UNSET,
-	KI_IOCTL_NR_CONFIG_DEL,
-	KI_IOCTL_NR_CONFIG_RESET,
+	KI_IOCTL_NR_GET_DEBUG,
 	KI_IOCTL_NR_CONFIG_ACTIVE,
 	KI_IOCTL_NR_CONFIG_INACTIVE,
 	KI_IOCTL_NR_FUNC_SET,
 	KI_IOCTL_NR_FUNC_UNSET,
 	KI_IOCTL_NR_FUNC_RESET,
 	KI_IOCTL_NR_GET_REAL,
-	KI_IOCTL_NR_CONFIG_RELOAD,
 };
 
 struct ki_ioc_version {
@@ -50,6 +45,10 @@ struct ki_ioc_version {
 struct ki_ioc_status {
 	__u32 safemode;
 	__u32 config_active;
+};
+
+struct ki_ioc_debug {
+	__u32 enabled;
 };
 
 struct ki_ioc_value {
@@ -73,33 +72,14 @@ struct ki_ioc_real {
 	char value[KI_UAPI_VALUE_MAX];
 };
 
-#define KI_IOC_GET_VERSION \
-	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_VERSION, struct ki_ioc_version)
-#define KI_IOC_GET_STATUS \
-	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_STATUS, struct ki_ioc_status)
-#define KI_IOC_SAFE_MODE \
-	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_SAFE_MODE, __u32)
-#define KI_IOC_CONFIG_VALUE_SET \
-	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_SET, struct ki_ioc_value)
-#define KI_IOC_CONFIG_VALUE_UNSET \
-	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_UNSET, struct ki_ioc_key)
-#define KI_IOC_CONFIG_KFUNC_DEL \
-	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_DEL, struct ki_ioc_kfunc)
-#define KI_IOC_CONFIG_KFUNC_RESET \
-	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_RESET, struct ki_ioc_kfunc)
-#define KI_IOC_CONFIG_ON \
-	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_ACTIVE)
-#define KI_IOC_CONFIG_OFF \
-	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_INACTIVE)
-#define KI_IOC_FUNC_VALUE_SET \
-	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_SET, struct ki_ioc_value)
-#define KI_IOC_FUNC_VALUE_UNSET \
-	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_UNSET, struct ki_ioc_key)
-#define KI_IOC_FUNC_KFUNC_RESET \
-	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_RESET, struct ki_ioc_kfunc)
-#define KI_IOC_GET_REAL_INFO \
-	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_REAL, struct ki_ioc_real)
-#define KI_IOC_CONFIG_RELOAD \
-	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_RELOAD)
+#define KI_IOC_GET_VERSION 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_VERSION, struct ki_ioc_version)
+#define KI_IOC_GET_STATUS 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_STATUS, struct ki_ioc_status)
+#define KI_IOC_GET_DEBUG 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_DEBUG, struct ki_ioc_debug)
+#define KI_IOC_CONFIG_ON 	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_ACTIVE)
+#define KI_IOC_CONFIG_OFF 	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_INACTIVE)
+#define KI_IOC_FUNC_VALUE_SET 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_SET, struct ki_ioc_value)
+#define KI_IOC_FUNC_VALUE_UNSET 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_UNSET, struct ki_ioc_key)
+#define KI_IOC_FUNC_KFUNC_RESET 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_RESET, struct ki_ioc_kfunc)
+#define KI_IOC_GET_REAL_INFO 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_REAL, struct ki_ioc_real)
 
 #endif /* _KI_UAPI_H */
