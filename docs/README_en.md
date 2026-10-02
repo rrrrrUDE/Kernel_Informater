@@ -17,7 +17,7 @@ cd /path/to/kernel
 sh /path/to/Kernel-Informater/kernel/setup.sh
 ```
 
-`setup.sh will ask whether to enable automatic GKI Hook.
+`setup.sh` will ask whether to enable automatic GKI Hook.
 
 Enter `y` to enable automatic Kprobe Hook. Press Enter directly or enter `n` to use `kernel/integrate.sh` for manual Hook integration by default.
 
