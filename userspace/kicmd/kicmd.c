@@ -112,7 +112,7 @@ static int open_ki(void)
 
 static int open_ki_checked(void)
 {
-	int fd = open_ki_checked();
+	int fd = open_ki();
 
 	if (fd < 0)
 		return -1;
