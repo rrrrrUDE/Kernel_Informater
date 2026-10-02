@@ -52,9 +52,9 @@ static int print_version(void)
 	}
 
 	close(fd);
-	printf("Kernel Informater kernel v%u.%u.%u\n",
+	printf("kernel:%u.%u.%u\n",
 	       version.major, version.minor, version.patch);
-	printf("Kernel Informater kicmd v%s\n", KICMD_VERSION_STRING);
+	printf("userspace:%s\n", KICMD_VERSION_STRING);
 	return 0;
 }
 
