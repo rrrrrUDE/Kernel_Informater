@@ -64,19 +64,18 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_SAFE_MODE:
-		return -EOPNOTSUPP;
-	case KI_IOC_CONFIG_RELOAD:
-		return ki_config_reload();
-	case KI_IOC_CONFIG_VALUE_SET:
-		return -EOPNOTSUPP;
-	case KI_IOC_CONFIG_KFUNC_DEL:
-		return -EOPNOTSUPP;
-	case KI_IOC_CONFIG_KFUNC_RESET:
-		return -EOPNOTSUPP;
+	case KI_IOC_GET_DEBUG: {
+		struct ki_ioc_debug debug = {
+			.enabled = ki_debug ? 1 : 0,
+		};
+		if (copy_to_user((void __user *)arg, &debug, sizeof(debug)))
+			return -EFAULT;
+		return 0;
+	}
 	case KI_IOC_CONFIG_ON:
+		return ki_config_active();
 	case KI_IOC_CONFIG_OFF:
-		return -EOPNOTSUPP;
+		return ki_config_inactive();
 	case KI_IOC_FUNC_VALUE_SET: {
 		struct ki_ioc_value value;
 		int ret = ki_copy_ioc_value(&value, arg);
