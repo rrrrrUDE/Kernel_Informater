@@ -15,7 +15,7 @@ KMAKE="$GKI_ROOT/kernel/Makefile"
 AUTO_MARKER="$GKI_ROOT/kernel/.ki_auto_hook_default"
 
 KCONFIG_LINE='source "kernel/Kernel_Informater/Kconfig"'
-KMAKE_LINE='obj-\$(CONFIG_KI) += Kernel_Informater/'
+KMAKE_LINE='obj-$(CONFIG_KI) += Kernel_Informater/'
 
 MODE=install
 HOOK_MODE=prompt
