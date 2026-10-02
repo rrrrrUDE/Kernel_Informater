@@ -1,0 +1,38 @@
+menuconfig KI
+	bool "Kernel Informater"
+	default n
+	help
+	  Kernel Informater provides kernel information management,
+	  runtime control, userspace communication and hook interfaces.
+
+if KI
+
+config KI_DEBUG
+	bool "Kernel Informater debug"
+	default n
+	help
+	  Enable kernel-side debug logging for Kernel Informater.
+
+config KI_BOOTAPPLY
+	bool "Kernel Informater boot apply"
+	default n
+	help
+	  Enable the boot-apply integration point used by the KI userspace
+	  service to restore persistent configuration from /data/adb/ki_userd.
+
+config KI_KPROBEHOOK
+	bool "Kernel Informater automatic GKI hook"
+	default n # KI_AUTO_HOOK_DEFAULT
+	depends on ARM64
+	depends on (TRACEPOINTS && HAVE_SYSCALL_TRACEPOINTS) || (KPROBES && KRETPROBES)
+	help
+	  Enable the automatic GKI hook backend.
+
+	  KI prefers the raw syscall tracepoints used by modern GKI kernels and
+	  falls back to kretprobe plus task_work when the tracepoint backend is
+	  unavailable. The automatic backend targets Android GKI 5.10 and 6.1+.
+
+	  Keep this disabled for legacy/non-GKI trees and use integrate.sh for
+	  source-level hooks.
+
+endif
