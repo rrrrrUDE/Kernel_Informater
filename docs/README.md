@@ -70,6 +70,6 @@ kicmd、配置和Debug日志会统一放在：
 内核部分使用 GPL-2.0-only。UAPI 文件本身按照文件头声明采用 GPL-2.0-or-later 与 MIT 兼容的双重许可。
 
 ## 特别感谢
-[KernelSU](https://github.com/tiann/KernelSU) 提供部分思路与参考。
+ * [KernelSU](https://github.com/tiann/KernelSU): 提供部分思路与参考。
 
 KI 是一个独立项目，具体架构与实现会根据自身需求单独开发。感谢 Android 内核开源社区提供的大量工程实践与开源参考。
