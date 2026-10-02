@@ -15,6 +15,8 @@ struct ki_state {
 
 extern struct ki_state ki_state;
 
+int ki_safemode_init(void);
+void ki_safemode_exit(void);
 int ki_set_safemode(bool enable);
 bool ki_is_safemode(void);
 
