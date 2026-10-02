@@ -54,6 +54,7 @@ The UAPI files are dual-licensed under GPL-2.0-or-later and MIT, as specified in
 
 ## Special Thanks
 - [KernelSU](https://github.com/tiann/KernelSU): Provided ideas and references for parts of the implementation.
+- [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): Reference for hook detection and setup.sh.
 
 KI is an independent project. Its architecture and implementation are developed independently according to its own requirements.
 
