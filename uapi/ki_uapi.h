@@ -13,6 +13,11 @@
 #define KI_DEVICE_NAME "ki"
 #define KI_DEVICE_PATH "/dev/ki"
 
+#define KI_USERD_DIR "/data/ki_userd"
+#define KI_USERD_CONFIG_PATH KI_USERD_DIR "/config"
+#define KI_USERD_SAFE_MODE_PATH KI_USERD_DIR "/safemode"
+#define KI_USERD_DEBUG_LOG_PATH KI_USERD_DIR "/debug.log"
+
 #define KI_UAPI_KFUNC_MAX 64
 #define KI_UAPI_KEY_MAX 64
 #define KI_UAPI_VALUE_MAX 256
@@ -33,6 +38,7 @@ enum ki_ioctl_nr {
 	KI_IOCTL_NR_FUNC_UNSET,
 	KI_IOCTL_NR_FUNC_RESET,
 	KI_IOCTL_NR_GET_REAL,
+	KI_IOCTL_NR_CONFIG_RELOAD,
 };
 
 struct ki_ioc_version {
@@ -93,5 +99,7 @@ struct ki_ioc_real {
 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_RESET, struct ki_ioc_kfunc)
 #define KI_IOC_GET_REAL_INFO \
 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_REAL, struct ki_ioc_real)
+#define KI_IOC_CONFIG_RELOAD \
+	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_RELOAD)
 
 #endif /* _KI_UAPI_H */
