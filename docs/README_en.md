@@ -10,31 +10,7 @@ Kernel Informater (KI) is a kernel management tool for Android. It manages kerne
 
 ## ⚠️ Kernel Informater checks every required hook. Missing any hook will cause the kernel build to fail. ⚠️
 
-Run the following command in the root directory of the target kernel source:
-
-```bash
-cd /path/to/kernel
-sh /path/to/Kernel-Informater/kernel/setup.sh
-```
-
-`setup.sh` will ask whether to enable automatic GKI Hook.
-
-Enter `y` to enable automatic Kprobe Hook. Press Enter directly or enter `n` to use `kernel/integrate.sh` for manual Hook integration by default.
-
-You can also use:
-
-```bash
-sh /path/to/Kernel-Informater/kernel/setup.sh --auto-hook
-sh /path/to/Kernel-Informater/kernel/setup.sh --manual-hook
-```
-
-To clean up the integration:
-
-```bash
-sh /path/to/Kernel-Informater/kernel/setup.sh --cleanup
-```
-
-For detailed instructions, see the [Integration Documentation](integrate/README.md).
+See the [Integration Documentation](integrate/README.md).
 
 ## Kconfig
 
