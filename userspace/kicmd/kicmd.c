@@ -102,8 +102,8 @@ static int open_ki(void)
 	int fd = open(KI_DEVICE_PATH, O_RDWR | O_CLOEXEC);
 
 	if (fd < 0) {
-		fprintf(stderr, "%s: cannot open %s: %s\n",
-			KICMD_NAME, KI_DEVICE_PATH, strerror(errno));
+		fprintf(stderr, "%s: Kernel Informater driver is not built in\n",
+			KICMD_NAME);
 		return -1;
 	}
 
