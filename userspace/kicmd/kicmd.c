@@ -119,7 +119,7 @@ static int open_ki_checked(void)
 	{
 		struct ki_ioc_version version;
 		memset(&version, 0, sizeof(version));
-		if (ioctl(fd, KI_IOC_GET_VERSION, &version) < 0) {
+		if (ki_ioctl(fd, KI_IOC_GET_VERSION, &version) < 0) {
 			if (errno == ENOTTY || errno == ENOSYS)
 				fprintf(stderr, "%s: Kernel Informater driver is not built in\n", KICMD_NAME);
 			else
