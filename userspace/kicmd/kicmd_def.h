@@ -9,13 +9,13 @@
 #define KICMD_VERSION KI_VERSION_STRING
 
 /* All KI userspace state intentionally lives below /data/. */
-#define KICMD_USERD_DIR        KI_USER_DIR
+#define KICMD_USER_DIR         KI_USER_DIR
 #define KI_USER_CONFIG        KI_USER_CONFIG_PATH
 #define KI_USER_SAFE_MODE     KI_USER_SAFE_MODE_PATH
 #define KI_USER_DEBUG_LOG     KI_USER_DEBUG_LOG_PATH
 
 #define KICMD_CONFIG_LINE_MAX  512
-#define KICMD_CONFIG_TMP       KICMD_USERD_DIR "/.config.tmp.XXXXXX"
+#define KICMD_CONFIG_TMP       KICMD_USER_DIR "/.config.tmp.XXXXXX"
 
 #define KICMD_CMD_SAFEMODE "safemode"
 #define KICMD_CMD_CONFIG   "config"
