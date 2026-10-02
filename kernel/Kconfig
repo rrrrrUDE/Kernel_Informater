@@ -17,7 +17,10 @@ config KI_BOOTAPPLY
 	bool "Kernel Informater boot apply"
 	default n
 	help
-	  Let the kernel read and apply persistent configuration from /data/adb/ki_user/config at boot.
+	  Apply persistent configuration from /data/adb/ki_user/config at boot.
+	  The configuration remains applied in kernel memory while active; this
+	  does not perform periodic config file reads. Userspace config changes
+	  explicitly synchronize the kernel configuration.
 
 config KI_KPROBEHOOK
 	bool "Kernel Informater automatic GKI hook"

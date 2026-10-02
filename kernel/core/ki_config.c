@@ -36,9 +36,6 @@ int ki_config_active(void)
 	if (ret)
 		return ret;
 
-	if (!ki_config_is_active())
-		return -EINVAL;
-
 	pr_info("KI: persistent configuration activated\n");
 	return 0;
 }
