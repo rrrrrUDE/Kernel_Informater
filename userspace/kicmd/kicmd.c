@@ -46,6 +46,33 @@ static int ensure_userd_dir(void)
 	return 0;
 }
 
+static bool ki_debug_enabled(void)
+{
+	static int cached = -1;
+	int fd;
+	struct ki_ioc_debug debug;
+
+	if (cached >= 0)
+		return cached != 0;
+
+	fd = open(KI_DEVICE_PATH, O_RDONLY | O_CLOEXEC);
+	if (fd < 0) {
+		cached = 0;
+		return false;
+	}
+
+	memset(&debug, 0, sizeof(debug));
+	if (ki_ioctl(fd, KI_IOC_GET_DEBUG, &debug) < 0) {
+		close(fd);
+		cached = 0;
+		return false;
+	}
+
+	close(fd);
+	cached = debug.enabled ? 1 : 0;
+	return cached != 0;
+}
+
 static void debug_log(const char *fmt, ...)
 {
 	FILE *fp;
@@ -53,6 +80,9 @@ static void debug_log(const char *fmt, ...)
 	time_t now;
 	struct tm tm;
 	char ts[64];
+
+	if (!ki_debug_enabled())
+		return;
 
 	if (ensure_userd_dir())
 		return;
@@ -71,7 +101,6 @@ static void debug_log(const char *fmt, ...)
 	fputc('\n', fp);
 	fclose(fp);
 }
-
 static int open_ki(void);
 static int ki_ioctl(int fd, unsigned long request, void *arg);
 
