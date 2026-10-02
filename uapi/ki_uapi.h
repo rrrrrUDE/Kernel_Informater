@@ -13,10 +13,10 @@
 #define KI_DEVICE_NAME "ki"
 #define KI_DEVICE_PATH "/dev/ki"
 
-#define KI_USERD_DIR "/data/ki_userd"
-#define KI_USERD_CONFIG_PATH KI_USERD_DIR "/config"
-#define KI_USERD_SAFE_MODE_PATH KI_USERD_DIR "/safemode"
-#define KI_USERD_DEBUG_LOG_PATH KI_USERD_DIR "/debug.log"
+#define KI_USER_DIR "/data/adb/ki_user"
+#define KI_USERD_CONFIG_PATH KI_USER_DIR "/config"
+#define KI_USERD_SAFE_MODE_PATH KI_USER_DIR "/safemode"
+#define KI_USERD_DEBUG_LOG_PATH KI_USER_DIR "/debug.log"
 
 #define KI_UAPI_KFUNC_MAX 64
 #define KI_UAPI_KEY_MAX 64
