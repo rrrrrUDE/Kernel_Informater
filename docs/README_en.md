@@ -16,7 +16,7 @@ See the [Integration Documentation](integrate/README_en.md).
 
 CONFIG_KI: Enable Kernel Informater
 CONFIG_KI_DEBUG: Enable debug mode
-CONFIG_KI_BOOTAPPLY: Automatically apply the configuration at boot. (If disabled, use kicmd config active to activate it.)
+CONFIG_KI_BOOTAPPLY: Let the kernel read and apply persistent configuration at boot.
 CONFIG_KI_KPROBEHOOK: Use Kprobe to perform Hooking. (GKI Only. When disabled, manual Hooks will be used.)
 
 Automatic Hooking is disabled by default. The minimum configuration is:
@@ -41,10 +41,13 @@ Uses Kprobe to implement Hooking.
 
 ## Kernel Informater User Directory
 
-kicmd, configuration files, and debug logs are stored in:
+Persistent configuration, debug logs, and the safe-mode marker are stored in:
 
 ```text
-/data/adb/ki_userd/
+/data/ki_userd/
+├── config
+├── debug.log
+└── safemode       # exists only while safe mode is enabled
 ```
 
 ## License
@@ -59,3 +62,10 @@ The UAPI files are dual-licensed under GPL-2.0-or-later and MIT, as specified in
 KI is an independent project. Its architecture and implementation are developed independently according to its own requirements.
 
 We would like to thank the Android kernel open-source community for providing a large amount of engineering experience, practical implementations, and open-source references.
+## Configuration and Safe Mode
+
+Persistent configuration is managed by `kicmd` and stored in `config`. The kernel only reads the configuration; it no longer modifies persistent configuration through ioctl. After a configuration change, `kicmd` asks the kernel to reload the file.
+
+`kicmd safemode enable` creates an empty `/data/ki_userd/safemode` marker; `kicmd safemode disable` removes it. The kernel performs a non-blocking check for up to 2 seconds during startup. If the marker appears, safe mode is enabled immediately and polling stops until shutdown. If it never appears, polling ends without enabling safe mode.
+
+The `debug` switch file has been removed. Debug output is written directly to `debug.log`.
