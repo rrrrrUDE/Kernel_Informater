@@ -26,6 +26,7 @@ int ki_config_set(const char *kfunc, const char *key, const char *value);
 int ki_config_unset(const char *kfunc, const char *key);
 int ki_config_del(const char *kfunc);
 int ki_config_reset(const char *kfunc);
+int ki_config_reload(void);
 
 int ki_func_set(const char *kfunc, const char *key, const char *value);
 int ki_func_unset(const char *kfunc, const char *key);
