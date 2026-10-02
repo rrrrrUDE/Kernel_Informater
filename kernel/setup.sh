@@ -189,8 +189,11 @@ remove_manual_hook() {
 cleanup() {
 	echo "[+] Cleaning up Kernel Informater..."
 
-	# Cleanup must work even if the KI clone was manually removed.
-	remove_manual_hook
+	# Only operate on a real KI checkout. Never remove an unrelated
+	# directory that happens to use the same name.
+	if repo_is_valid; then
+		remove_manual_hook
+	fi
 
 	if [ -L "$KI_DST" ]; then
 		rm -f "$KI_DST"
@@ -205,7 +208,7 @@ cleanup() {
 		rm -f "$AUTO_MARKER"
 	fi
 
-	if [ -d "$KI_REPO_DIR" ]; then
+	if repo_is_valid; then
 		rm -rf "$KI_REPO_DIR"
 		echo "[-] Kernel Informater directory removed."
 	fi
@@ -277,6 +280,9 @@ integrate_kernel_tree
 
 case "$HOOK_MODE" in
 	auto)
+		# Switching from manual -> automatic must remove source-level hooks;
+		# otherwise both hook paths could be active at the same time.
+		remove_manual_hook
 		ensure_auto_default
 		echo "[+] Automatic GKI hook selected."
 		echo "[+] kernel/integrate.sh was not executed."
