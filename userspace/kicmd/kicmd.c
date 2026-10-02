@@ -401,7 +401,7 @@ static int ioctl_value(unsigned long request,
 	if (value)
 		strncpy(v.value, value, sizeof(v.value) - 1);
 
-	fd = open_ki();
+	fd = open_ki_checked();
 	if (fd < 0)
 		return 1;
 	if (ki_ioctl(fd, request, &v) < 0) {
