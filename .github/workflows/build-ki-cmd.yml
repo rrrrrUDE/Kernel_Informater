@@ -1,0 +1,89 @@
+name: Build ki_cmd
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - '.github/workflows/build-ki-cmd.yml'
+      - 'userspace/kicmd/**'
+      - 'uapi/**'
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - '.github/workflows/build-ki-cmd.yml'
+      - 'userspace/kicmd/**'
+      - 'uapi/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: arm64-v8a
+            cc: aarch64-linux-android26-clang
+          - name: armeabi-v7a
+            cc: armv7a-linux-androideabi26-clang
+          - name: x86_64
+            cc: x86_64-linux-android26-clang
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r29
+
+      - name: Build ki_cmd
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          NDK_CLANG: ${{ matrix.cc }}
+        run: |
+          set -euo pipefail
+
+          TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          CC="$TOOLCHAIN/$NDK_CLANG"
+          OUT_DIR="build/ki_cmd/${{ matrix.name }}"
+          OUT="$OUT_DIR/kicmd"
+
+          test -x "$CC"
+          mkdir -p "$OUT_DIR"
+
+          "$CC" \
+            -std=c11 \
+            -O2 \
+            -Wall \
+            -Wextra \
+            -D_FORTIFY_SOURCE=2 \
+            -fstack-protector-strong \
+            -fPIE \
+            -I"$GITHUB_WORKSPACE/uapi" \
+            "$GITHUB_WORKSPACE/userspace/kicmd/kicmd.c" \
+            -Wl,-z,relro,-z,now \
+            -pie \
+            -o "$OUT"
+
+          "$OUT" --version
+          "$OUT" --help
+          file "$OUT"
+
+      - name: Upload ki_cmd artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ki_cmd-${{ matrix.name }}
+          path: build/ki_cmd/${{ matrix.name }}/kicmd
+          if-no-files-found: error
