@@ -55,15 +55,6 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_GET_STATUS: {
-		struct ki_ioc_status status = {
-			.safemode = ki_is_safemode(),
-			.config_active = ki_config_is_active(),
-		};
-		if (copy_to_user((void __user *)arg, &status, sizeof(status)))
-			return -EFAULT;
-		return 0;
-	}
 	case KI_IOC_GET_DEBUG: {
 		struct ki_ioc_debug debug = {
 			.enabled = ki_debug ? 1 : 0,

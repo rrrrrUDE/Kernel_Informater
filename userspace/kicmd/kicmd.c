@@ -15,10 +15,29 @@
 #include "kicmd_def.h"
 
 static int ki_ioctl(int fd, unsigned long request, void *arg);
+static int open_ki_checked(void);
 
-static void print_version(void)
+static int print_version(void)
 {
-	printf("Kernel Informater v%s\n", KICMD_VERSION);
+	struct ki_ioc_version version;
+	int fd;
+
+	fd = open_ki_checked();
+	if (fd < 0)
+		return 1;
+
+	memset(&version, 0, sizeof(version));
+	if (ki_ioctl(fd, KI_IOC_GET_VERSION, &version) < 0) {
+		fprintf(stderr, "%s: get kernel version: %s\n",
+			KICMD_NAME, strerror(errno));
+		close(fd);
+		return 1;
+	}
+
+	close(fd);
+	printf("Kernel Informater v%u.%u.%u\n",
+	       version.major, version.minor, version.patch);
+	return 0;
 }
 
 static void print_help(void)
@@ -103,30 +122,6 @@ static void debug_log(const char *fmt, ...)
 	fputc('\n', fp);
 	fclose(fp);
 }
-static int open_ki(void);
-
-static bool kfunc_exists(const char *kfunc)
-{
-	static const char *const known_kfuncs[] = { "uname" };
-	size_t i;
-
-	if (!kfunc || !*kfunc)
-		return false;
-	for (i = 0; i < sizeof(known_kfuncs) / sizeof(known_kfuncs[0]); ++i)
-		if (!strcmp(kfunc, known_kfuncs[i]))
-			return true;
-	return false;
-}
-
-static int check_kfunc(const char *kfunc)
-{
-	if (kfunc_exists(kfunc))
-		return 0;
-	fprintf(stderr, "%s: kfunc '%s' does not exist\n",
-		KICMD_NAME, kfunc ? kfunc : "");
-	return -ENOENT;
-}
-
 static int open_ki(void)
 {
 	int fd = open(KI_DEVICE_PATH, O_RDWR | O_CLOEXEC);
@@ -428,10 +423,7 @@ static int ioctl_value(unsigned long request,
 {
 	struct ki_ioc_value v;
 	int fd;
-
-	if (check_kfunc(kfunc))
-		return 1;
-	memset(&v, 0, sizeof(v));
+memset(&v, 0, sizeof(v));
 	strncpy(v.kfunc, kfunc, sizeof(v.kfunc) - 1);
 	strncpy(v.key, key, sizeof(v.key) - 1);
 	if (value)
@@ -453,10 +445,7 @@ static int ioctl_key(unsigned long request, const char *kfunc, const char *key)
 {
 	struct ki_ioc_key v;
 	int fd;
-
-	if (check_kfunc(kfunc))
-		return 1;
-	memset(&v, 0, sizeof(v));
+memset(&v, 0, sizeof(v));
 	strncpy(v.kfunc, kfunc, sizeof(v.kfunc) - 1);
 	if (key)
 		strncpy(v.key, key, sizeof(v.key) - 1);
@@ -476,10 +465,7 @@ static int ioctl_kfunc(unsigned long request, const char *kfunc)
 {
 	struct ki_ioc_kfunc v;
 	int fd;
-
-	if (kfunc && *kfunc && check_kfunc(kfunc))
-		return 1;
-	memset(&v, 0, sizeof(v));
+memset(&v, 0, sizeof(v));
 	if (kfunc)
 		strncpy(v.kfunc, kfunc, sizeof(v.kfunc) - 1);
 	fd = open_ki_checked();
@@ -551,9 +537,7 @@ static int cmd_config(int argc, char **argv)
 		if (argc != 5)
 			return fprintf(stderr, "%s: usage: config set <kfunc> <key> <value>\n", KICMD_NAME), 1;
 		kfunc = argv[2]; key = argv[3]; value = argv[4];
-		if (check_kfunc(kfunc))
-			return 1;
-		ret = cfg_set(kfunc, key, value);
+ret = cfg_set(kfunc, key, value);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
 		debug_log("config set %s.%s=%s", kfunc, key, value);
@@ -564,9 +548,7 @@ static int cmd_config(int argc, char **argv)
 		if (argc != 4)
 			return fprintf(stderr, "%s: usage: config unset <kfunc> <key>\n", KICMD_NAME), 1;
 		kfunc = argv[2]; key = argv[3];
-		if (check_kfunc(kfunc))
-			return 1;
-		ret = cfg_unset(kfunc, key);
+ret = cfg_unset(kfunc, key);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
 		debug_log("config unset %s.%s", kfunc, key);
@@ -577,9 +559,7 @@ static int cmd_config(int argc, char **argv)
 		if (argc != 3)
 			return fprintf(stderr, "%s: usage: config del <kfunc>\n", KICMD_NAME), 1;
 		kfunc = argv[2];
-		if (check_kfunc(kfunc))
-			return 1;
-		ret = cfg_reset_kfunc(kfunc);
+ret = cfg_reset_kfunc(kfunc);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
 		debug_log("config del %s", kfunc);
@@ -591,9 +571,7 @@ static int cmd_config(int argc, char **argv)
 			return fprintf(stderr, "%s: usage: config reset [<kfunc>]\n", KICMD_NAME), 1;
 		if (argc == 3) {
 			kfunc = argv[2];
-			if (check_kfunc(kfunc))
-				return 1;
-			ret = cfg_reset_kfunc(kfunc);
+ret = cfg_reset_kfunc(kfunc);
 			if (ret)
 				return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
 			debug_log("config reset %s", kfunc);
@@ -618,9 +596,7 @@ static int cmd_config(int argc, char **argv)
 	if (!strcmp(argv[1], KICMD_SUB_LIST)) {
 		if (argc > 3)
 			return fprintf(stderr, "%s: usage: config list [<kfunc>]\n", KICMD_NAME), 1;
-		if (argc == 3 && check_kfunc(argv[2]))
-			return 1;
-		cfg_list(argc == 3 ? argv[2] : NULL);
+cfg_list(argc == 3 ? argv[2] : NULL);
 		return 0;
 	}
 
@@ -661,9 +637,7 @@ static int cmd_list(int argc, char **argv)
 
 	if (argc == 2) {
 		kfunc = argv[1];
-		if (check_kfunc(kfunc))
-			return 1;
-	}
+}
 
 	fd = open_ki_checked();
 	if (fd < 0)
@@ -754,7 +728,7 @@ int main(int argc, char **argv)
 	}
 	if (!strcmp(argv[1], KICMD_CMD_HELP)) return cmd_help(argc - 1, argv + 1);
 	if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) { print_help(); return 0; }
-	if (!strcmp(argv[1], KICMD_CMD_VERSION) || !strcmp(argv[1], "-V") || !strcmp(argv[1], "--version")) { print_version(); return 0; }
+	if (!strcmp(argv[1], KICMD_CMD_VERSION) || !strcmp(argv[1], "-V") || !strcmp(argv[1], "--version")) return print_version();
 	if (!strcmp(argv[1], KICMD_CMD_SAFEMODE)) return cmd_safemode(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_CONFIG)) return cmd_config(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_LIST)) return cmd_list(argc - 1, argv + 1);

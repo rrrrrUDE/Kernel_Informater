@@ -6,9 +6,8 @@
 #include "ki_uapi.h"
 
 #define KICMD_NAME "kicmd"
-#define KICMD_VERSION KI_VERSION_STRING
 
-/* All KI userspace state intentionally lives below /data/. */
+/* All KI userspace state intentionally lives below /data/adb/ki_user. */
 #define KICMD_USER_DIR         KI_USER_DIR
 #define KI_USER_CONFIG        KI_USER_CONFIG_PATH
 #define KI_USER_SAFE_MODE     KI_USER_SAFE_MODE_PATH

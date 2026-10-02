@@ -73,17 +73,6 @@ bool ki_is_safemode(void)
 	return value;
 }
 
-/*
- * Safe mode is controlled exclusively by /data/adb/ki_user/safemode.
- * The ioctl setter is retained only for ABI compatibility and cannot
- * override the persistent marker-based state.
- */
-int ki_set_safemode(bool enable)
-{
-	(void)enable;
-	return -EOPNOTSUPP;
-}
-
 int ki_func_set(const char *kfunc, const char *key, const char *value)
 {
 	struct ki_kfunc *func;

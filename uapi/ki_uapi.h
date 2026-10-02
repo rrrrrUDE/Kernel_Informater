@@ -26,7 +26,6 @@
 
 enum ki_ioctl_nr {
 	KI_IOCTL_NR_GET_VERSION = 0,
-	KI_IOCTL_NR_GET_STATUS,
 	KI_IOCTL_NR_GET_DEBUG,
 	KI_IOCTL_NR_CONFIG_ACTIVE,
 	KI_IOCTL_NR_CONFIG_INACTIVE,
@@ -40,11 +39,6 @@ struct ki_ioc_version {
 	__u32 major;
 	__u32 minor;
 	__u32 patch;
-};
-
-struct ki_ioc_status {
-	__u32 safemode;
-	__u32 config_active;
 };
 
 struct ki_ioc_debug {
@@ -73,7 +67,6 @@ struct ki_ioc_real {
 };
 
 #define KI_IOC_GET_VERSION 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_VERSION, struct ki_ioc_version)
-#define KI_IOC_GET_STATUS 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_STATUS, struct ki_ioc_status)
 #define KI_IOC_GET_DEBUG 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_DEBUG, struct ki_ioc_debug)
 #define KI_IOC_CONFIG_ON 	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_ACTIVE)
 #define KI_IOC_CONFIG_OFF 	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_INACTIVE)

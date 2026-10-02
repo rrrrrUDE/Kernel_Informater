@@ -18,7 +18,6 @@ extern bool ki_debug;
 
 int ki_safemode_init(void);
 void ki_safemode_exit(void);
-int ki_set_safemode(bool enable);
 bool ki_is_safemode(void);
 
 int ki_config_active(void);
