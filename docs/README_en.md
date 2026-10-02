@@ -10,7 +10,7 @@ Kernel Informater (KI) is a kernel management tool for Android. It manages kerne
 
 ## ⚠️ Kernel Informater checks every required hook. Missing any hook will cause the kernel build to fail. ⚠️
 
-See the [Integration Documentation](integrate/README.md).
+See the [Integration Documentation](integrate/README_en.md).
 
 ## Kconfig
 
