@@ -132,34 +132,7 @@ static int open_ki_checked(void)
 	return fd;
 }
 
-static int cfg_set_active_and_ioctl(bool active)
-{
-	int fd;
-	int ret;
-
-	fd = open_ki_checked();
-	if (fd < 0)
-		return 1;
-
-	ret = cfg_set_active(active);
-	if (ret) {
-		fprintf(stderr, "%s: save config: %s\n",
-			KICMD_NAME, strerror(-ret));
-		close(fd);
-		return 1;
-	}
-
-	ret = ki_ioctl(fd, active ? KI_IOC_CONFIG_ON : KI_IOC_CONFIG_OFF, NULL);
-	if (ret < 0) {
-		fprintf(stderr, "%s: config %s: %s\n",
-			KICMD_NAME, active ? "active" : "inactive", strerror(errno));
-		close(fd);
-		return 1;
-	}
-
-	close(fd);
-	return 0;
-}
+static int cfg_set_active(bool active);
 
 static int ki_ioctl(int fd, unsigned long request, void *arg)
 {
