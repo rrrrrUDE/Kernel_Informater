@@ -629,6 +629,14 @@ static int cmd_config(int argc, char **argv)
 		return argc < 2 ? 1 : 0;
 	}
 
+	if (!strcmp(argv[1], "process")) {
+		ret = cmd_func_process(argc - 1, argv + 1);
+		if (ret)
+			fprintf(stderr, "%s: func process: %s\n", KICMD_NAME,
+				strerror(-ret));
+		return ret ? 1 : 0;
+	}
+
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
 		if (argc != 5)
 			return fprintf(stderr, "%s: usage: config set <kfunc> <key> <value>\n", KICMD_NAME), 1;
@@ -796,14 +804,34 @@ static int cmd_list(int argc, char **argv)
 	int ret = 0;
 	const char *kfunc = NULL;
 
-	if (argc > 2) {
-		fputs(kicmd_help_list, stdout);
-		return 1;
-	}
 	if (argc > 1 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help") ||
 			!strcmp(argv[1], "help"))) {
 		fputs(kicmd_help_list, stdout);
 		return 0;
+	}
+	if (argc >= 2 && !strcmp(argv[1], "process")) {
+		if (argc > 3) {
+			fputs(kicmd_help_list, stdout);
+			return 1;
+		}
+		fd = open_ki_checked();
+		if (fd < 0)
+			return 1;
+		ret = cmd_list_process(fd, argc - 1, argv + 1);
+		if (ret) {
+			fprintf(stderr, "%s: list process: %s\n",
+				KICMD_NAME, strerror(-ret));
+			close(fd);
+			return 1;
+		}
+		close(fd);
+		debug_log("list process%s%s",
+			argc == 3 ? " " : "", argc == 3 ? argv[2] : "");
+		return 0;
+	}
+	if (argc > 2) {
+		fputs(kicmd_help_list, stdout);
+		return 1;
 	}
 	if (argc == 2)
 		kfunc = argv[1];
@@ -812,8 +840,17 @@ static int cmd_list(int argc, char **argv)
 	if (fd < 0)
 		return 1;
 
-	if (kfunc) {
-		ret = list_real_kfunc(fd, kfunc);
+	if (kfunc && !strcmp(kfunc, "process")) {
+		if (argc > 3) {
+			ret = -EINVAL;
+		} else {
+			ret = cmd_list_process(fd, argc - 1, argv + 1);
+		}
+	} else if (kfunc) {
+		if (argc > 2)
+			ret = -EINVAL;
+		else
+			ret = list_real_kfunc(fd, kfunc);
 	} else {
 		for (;;) {
 			struct ki_ioc_kfunc_info info;
@@ -848,6 +885,198 @@ static int cmd_list(int argc, char **argv)
 	close(fd);
 	debug_log("list %s", kfunc ? kfunc : "all");
 	return 0;
+}
+
+
+static int parse_pid(const char *s, pid_t *pid)
+{
+	char *endp;
+	long value;
+
+	if (!s || !*s || !pid)
+		return -EINVAL;
+	errno = 0;
+	value = strtol(s, &endp, 10);
+	if (errno || *endp || value <= 0 || value > INT_MAX)
+		return -EINVAL;
+	*pid = (pid_t)value;
+	return 0;
+}
+
+static int parse_u64(const char *s, unsigned long long *value)
+{
+	char *endp;
+
+	if (!s || !*s || !value)
+		return -EINVAL;
+	errno = 0;
+	*value = strtoull(s, &endp, 0);
+	if (errno || *endp)
+		return -EINVAL;
+	return 0;
+}
+
+static int process_check_func(int fd)
+{
+	int ret = check_kfunc_feature(fd, "process", KI_KFUNC_FEATURE_FUNC);
+
+	if (ret)
+		fprintf(stderr, "%s: kfunc 'process' does not support func: %s\n",
+			KICMD_NAME, strerror(-ret));
+	return ret;
+}
+
+static int list_process(int fd)
+{
+	struct ki_ioc_process_entry entry;
+	unsigned int index = 0;
+	int ret;
+
+	printf("PID\tPPID\tUID\tSTATE\tNAME\n");
+	for (;;) {
+		memset(&entry, 0, sizeof(entry));
+		entry.index = index++;
+		if (ki_ioctl(fd, KI_IOC_PROCESS_LIST, &entry) < 0) {
+			if (errno == ENOENT && index > 0)
+				return 0;
+			return -errno;
+		}
+		printf("%d\t%d\t%u\t%c\t%s\n",
+			entry.pid, entry.ppid, entry.uid,
+			(char)entry.state, entry.comm);
+	}
+}
+
+static int process_info(int fd, pid_t pid)
+{
+	struct ki_ioc_process_info info;
+
+	memset(&info, 0, sizeof(info));
+	info.pid = pid;
+	if (ki_ioctl(fd, KI_IOC_PROCESS_INFO, &info) < 0)
+		return -errno;
+
+	printf("pid:%d\n", info.pid);
+	printf("tgid:%d\n", info.tgid);
+	printf("ppid:%d\n", info.ppid);
+	printf("uid:%u\n", info.uid);
+	printf("gid:%u\n", info.gid);
+	printf("state:%c\n", (char)info.state);
+	printf("flags:0x%x\n", info.flags);
+	printf("start_time:%llu\n", (unsigned long long)info.start_time);
+	printf("virtual_size:%llu\n", (unsigned long long)info.virtual_size);
+	printf("resident_pages:%llu\n", (unsigned long long)info.resident_pages);
+	printf("comm:%s\n", info.comm);
+	return 0;
+}
+
+static int process_read_memory(int fd, pid_t pid,
+			       unsigned long long address, unsigned int size)
+{
+	struct ki_ioc_process_read read;
+	unsigned int i;
+
+	if (!size || size > KI_UAPI_PROCESS_READ_MAX)
+		return -EINVAL;
+
+	memset(&read, 0, sizeof(read));
+	read.pid = pid;
+	read.address = address;
+	read.size = size;
+
+	if (ki_ioctl(fd, KI_IOC_PROCESS_READ_MEMORY, &read) < 0)
+		return -errno;
+
+	for (i = 0; i < read.size; i++) {
+		if (i && !(i % 16))
+			putchar('\n');
+		printf("%02x", read.data[i]);
+	}
+	putchar('\n');
+	return 0;
+}
+
+static int process_signal(int fd, pid_t pid, bool tree)
+{
+	struct ki_ioc_process_pid request;
+
+	memset(&request, 0, sizeof(request));
+	request.pid = pid;
+	if (ki_ioctl(fd, tree ? KI_IOC_PROCESS_KILL_TREE : KI_IOC_PROCESS_KILL,
+		     &request) < 0)
+		return -errno;
+	return 0;
+}
+
+static int cmd_list_process(int fd, int argc, char **argv)
+{
+	pid_t pid;
+	int ret;
+
+	if (argc == 2) {
+		ret = parse_pid(argv[1], &pid);
+		if (ret)
+			return ret;
+		ret = process_info(fd, pid);
+	} else if (argc == 1) {
+		ret = list_process(fd);
+	} else {
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int cmd_func_process(int argc, char **argv)
+{
+	pid_t pid;
+	unsigned long long address;
+	char *endp;
+	unsigned long size;
+	int fd;
+	int ret;
+
+	if (argc < 2)
+		return -EINVAL;
+
+	fd = open_ki_checked();
+	if (fd < 0)
+		return -ENODEV;
+
+	ret = process_check_func(fd);
+	if (ret) {
+		close(fd);
+		return ret;
+	}
+
+	if (!strcmp(argv[1], "info")) {
+		if (argc != 3 || parse_pid(argv[2], &pid))
+			ret = -EINVAL;
+		else
+			ret = process_info(fd, pid);
+	} else if (!strcmp(argv[1], "read_memory")) {
+		if (argc != 5 || parse_pid(argv[2], &pid) ||
+		    parse_u64(argv[3], &address)) {
+			ret = -EINVAL;
+		} else {
+			errno = 0;
+			size = strtoul(argv[4], &endp, 0);
+			if (errno || *endp || !size || size > KI_UAPI_PROCESS_READ_MAX)
+				ret = -EINVAL;
+			else
+				ret = process_read_memory(fd, pid, address, (unsigned int)size);
+		}
+	} else if (!strcmp(argv[1], "kill") || !strcmp(argv[1], "kill_tree")) {
+		if (argc != 3 || parse_pid(argv[2], &pid))
+			ret = -EINVAL;
+		else
+			ret = process_signal(fd, pid, !strcmp(argv[1], "kill_tree"));
+	} else {
+		ret = -EINVAL;
+	}
+
+	close(fd);
+	return ret;
 }
 
 static int cmd_func(int argc, char **argv)

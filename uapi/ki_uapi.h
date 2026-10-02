@@ -21,6 +21,8 @@
 #define KI_UAPI_KFUNC_MAX 64
 #define KI_UAPI_KEY_MAX 64
 #define KI_UAPI_VALUE_MAX 256
+#define KI_UAPI_PROCESS_COMM_MAX 64
+#define KI_UAPI_PROCESS_READ_MAX 4096
 
 #define KI_IOC_MAGIC 'K'
 
@@ -37,6 +39,11 @@ enum ki_ioctl_nr {
 	KI_IOCTL_NR_GET_KFUNC_LIST,
 	KI_IOCTL_NR_CONFIG_SYNC,
 	KI_IOCTL_NR_GET_REAL_KEY_LIST,
+	KI_IOCTL_NR_PROCESS_LIST,
+	KI_IOCTL_NR_PROCESS_INFO,
+	KI_IOCTL_NR_PROCESS_READ_MEMORY,
+	KI_IOCTL_NR_PROCESS_KILL,
+	KI_IOCTL_NR_PROCESS_KILL_TREE,
 };
 
 struct ki_ioc_version {
@@ -92,6 +99,40 @@ struct ki_ioc_real_key_info {
 	char key[KI_UAPI_KEY_MAX];
 };
 
+struct ki_ioc_process_entry {
+	__u32 index;
+	__s32 pid;
+	__s32 ppid;
+	__u32 uid;
+	__u32 state;
+	char comm[KI_UAPI_PROCESS_COMM_MAX];
+};
+
+struct ki_ioc_process_info {
+	__s32 pid;
+	__s32 ppid;
+	__s32 tgid;
+	__u32 uid;
+	__u32 gid;
+	__u32 state;
+	__u32 flags;
+	__u64 start_time;
+	__u64 virtual_size;
+	__u64 resident_pages;
+	char comm[KI_UAPI_PROCESS_COMM_MAX];
+};
+
+struct ki_ioc_process_read {
+	__s32 pid;
+	__u32 size;
+	__u64 address;
+	__u8 data[KI_UAPI_PROCESS_READ_MAX];
+};
+
+struct ki_ioc_process_pid {
+	__s32 pid;
+};
+
 #define KI_IOC_GET_VERSION 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_VERSION, struct ki_ioc_version)
 #define KI_IOC_GET_DEBUG 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_DEBUG, struct ki_ioc_debug)
 #define KI_IOC_GET_KFUNC_FEATURES 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_KFUNC_FEATURES, struct ki_ioc_kfunc_features)
@@ -104,5 +145,10 @@ struct ki_ioc_real_key_info {
 #define KI_IOC_FUNC_VALUE_UNSET 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_UNSET, struct ki_ioc_key)
 #define KI_IOC_FUNC_KFUNC_RESET 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_RESET, struct ki_ioc_kfunc)
 #define KI_IOC_GET_REAL_INFO 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_REAL, struct ki_ioc_real)
+#define KI_IOC_PROCESS_LIST 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_LIST, struct ki_ioc_process_entry)
+#define KI_IOC_PROCESS_INFO 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_INFO, struct ki_ioc_process_info)
+#define KI_IOC_PROCESS_READ_MEMORY 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_READ_MEMORY, struct ki_ioc_process_read)
+#define KI_IOC_PROCESS_KILL 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_KILL, struct ki_ioc_process_pid)
+#define KI_IOC_PROCESS_KILL_TREE 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_KILL_TREE, struct ki_ioc_process_pid)
 
 #endif /* _KI_UAPI_H */

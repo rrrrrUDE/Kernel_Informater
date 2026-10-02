@@ -5,6 +5,7 @@
 
 #include "ki.h"
 #include "ki_kfunc.h"
+#include "ki_process.h"
 
 extern struct ki_kfunc ki_uname_kfunc;
 
@@ -27,6 +28,13 @@ static int __init ki_core_init(void)
 		return ret;
 	}
 
+	ret = ki_kfunc_register(&ki_process_kfunc);
+	if (ret) {
+		pr_err("KI: failed to register process kfunc: %d\n", ret);
+		ki_kfunc_unregister(&ki_uname_kfunc);
+		return ret;
+	}
+
 #ifdef CONFIG_KI_BOOTAPPLY
 	ret = ki_config_active();
 	if (ret < 0)
@@ -36,6 +44,7 @@ static int __init ki_core_init(void)
 	ret = ki_safemode_init();
 	if (ret) {
 		pr_err("KI: failed to initialize safe mode detection: %d\n", ret);
+		ki_kfunc_unregister(&ki_process_kfunc);
 		ki_kfunc_unregister(&ki_uname_kfunc);
 		return ret;
 	}
@@ -45,6 +54,7 @@ static int __init ki_core_init(void)
 		pr_err("KI: failed to register /dev/%s: %d\n",
 		       KI_DEVICE_NAME, ret);
 		ki_safemode_exit();
+		ki_kfunc_unregister(&ki_process_kfunc);
 		ki_kfunc_unregister(&ki_uname_kfunc);
 		return ret;
 	}
@@ -54,6 +64,7 @@ static int __init ki_core_init(void)
 		pr_err("KI: hook backend initialization failed: %d\n", ret);
 		ki_device_exit();
 		ki_safemode_exit();
+		ki_kfunc_unregister(&ki_process_kfunc);
 		ki_kfunc_unregister(&ki_uname_kfunc);
 		return ret;
 	}
@@ -68,6 +79,7 @@ static void __exit ki_core_exit(void)
 	ki_hook_exit();
 	ki_device_exit();
 	ki_safemode_exit();
+	ki_kfunc_unregister(&ki_process_kfunc);
 	ki_kfunc_unregister(&ki_uname_kfunc);
 	pr_info("KI: Kernel Informater exited\n");
 }

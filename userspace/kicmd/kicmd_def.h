@@ -46,7 +46,7 @@ static const char kicmd_help[] =
 	"Commands:\n"
 	"  safemode        Manage Kernel Informater safe mode\n"
 	"  config          Manage persistent Kernel Informater configurations\n"
-	"  list            Show real kernel information\n"
+	"  list            Show real kernel information and process information\n"
 	"  func            Manage temporary runtime kernel information\n"
 	"  help            Print this message or the help of the given subcommand(s)\n"
 	"  version         Print version\n"
@@ -83,9 +83,13 @@ static const char kicmd_help_config[] =
 	"  -h, --help                   Print help\n";
 
 static const char kicmd_help_list[] =
-	"Usage: kicmd list [<kfunc>]\n"
+	"Usage: kicmd list [<kfunc>] [<pid>]\n"
 	"\n"
-	"Show real kernel information before Kernel Informater modifications.\n"
+	"Show real kernel information or process information before Kernel Informater modifications.\n"
+	"\n"
+	"Process:\n"
+	"  list process             List visible processes\n"
+	"  list process <pid>       Show process information\n"
 	"\n"
 	"Options:\n"
 	"  -h, --help   Print help\n";
@@ -97,6 +101,10 @@ static const char kicmd_help_func[] =
 	"  set <kfunc> <key> <value>    Set temporary runtime value\n"
 	"  unset <kfunc> <key>          Remove temporary runtime value\n"
 	"  reset [<kfunc>]              Reset temporary runtime values\n"
+	"  process info <pid>           Show process information\n"
+	"  process read_memory <pid> <address> <size>  Read process memory\n"
+	"  process kill <pid>           Kill one process\n"
+	"  process kill_tree <pid>      Kill a process and its descendants\n"
 	"  help                         Print help\n"
 	"\n"
 	"Options:\n"

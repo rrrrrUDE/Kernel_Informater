@@ -8,11 +8,13 @@ ki-y := core/ki_core.o \
 	core/ki_kfunc.o \
 	core/ki_device.o \
 	core/ki_hook.o \
-	kfunc/uname/ki_uname.o
+	kfunc/uname/ki_uname.o \
+	kfunc/process/ki_process.o
 
 ccflags-y += -I$(src)/include
 ccflags-y += -I$(src)/uapi
 ccflags-y += -I$(src)/kfunc/uname
+ccflags-y += -I$(src)/kfunc/process
 
 # When KI is enabled and automatic GKI hooks are disabled, require the
 # source-level manual hook.

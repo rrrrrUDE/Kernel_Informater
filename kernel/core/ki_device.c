@@ -9,6 +9,7 @@
 
 #include "ki.h"
 #include "ki_kfunc.h"
+#include "ki_process.h"
 
 static int ki_copy_ioc_value(struct ki_ioc_value *dst, unsigned long arg)
 {
@@ -104,7 +105,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (kfunc->func_set && kfunc->func_unset &&
 		    kfunc->func_reset)
 			info.features |= KI_KFUNC_FEATURE_FUNC;
-		if (kfunc->get_real)
+		if (kfunc->get_real && kfunc->get_real_key)
 			info.features |= KI_KFUNC_FEATURE_GET_REAL;
 
 		if (copy_to_user((void __user *)arg, &info, sizeof(info)))
@@ -192,6 +193,58 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (copy_to_user((void __user *)arg, &real, sizeof(real)))
 			return -EFAULT;
 		return 0;
+	}
+	case KI_IOC_PROCESS_LIST: {
+		struct ki_ioc_process_entry entry;
+		int ret;
+
+		if (copy_from_user(&entry, (void __user *)arg, sizeof(entry)))
+			return -EFAULT;
+		ret = ki_process_list(&entry);
+		if (ret)
+			return ret;
+		if (copy_to_user((void __user *)arg, &entry, sizeof(entry)))
+			return -EFAULT;
+		return 0;
+	}
+	case KI_IOC_PROCESS_INFO: {
+		struct ki_ioc_process_info info;
+		int ret;
+
+		if (copy_from_user(&info, (void __user *)arg, sizeof(info)))
+			return -EFAULT;
+		ret = ki_process_info(&info);
+		if (ret)
+			return ret;
+		if (copy_to_user((void __user *)arg, &info, sizeof(info)))
+			return -EFAULT;
+		return 0;
+	}
+	case KI_IOC_PROCESS_READ_MEMORY: {
+		struct ki_ioc_process_read read;
+		int ret;
+
+		if (copy_from_user(&read, (void __user *)arg, sizeof(read)))
+			return -EFAULT;
+		ret = ki_process_read_memory(&read);
+		if (ret)
+			return ret;
+		if (copy_to_user((void __user *)arg, &read, sizeof(read)))
+			return -EFAULT;
+		return 0;
+	}
+	case KI_IOC_PROCESS_KILL:
+	case KI_IOC_PROCESS_KILL_TREE: {
+		struct ki_ioc_process_pid pid;
+		int ret;
+
+		if (copy_from_user(&pid, (void __user *)arg, sizeof(pid)))
+			return -EFAULT;
+		if (cmd == KI_IOC_PROCESS_KILL)
+			ret = ki_process_kill(pid.pid);
+		else
+			ret = ki_process_kill_tree(pid.pid);
+		return ret;
 	}
 	default:
 		return -ENOTTY;
