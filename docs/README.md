@@ -39,7 +39,7 @@ CONFIG_KI_KPROBEHOOK=n
 配置、Debug日志和安全模式标记统一放在：
 
 ```text
-/data/ki_userd/
+/data/adb/ki_user
 ├── config
 ├── debug.log
 └── safemode       # 仅在安全模式启用时存在
@@ -54,11 +54,3 @@ CONFIG_KI_KPROBEHOOK=n
  * [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): 钩子判断与setup.sh参考。
 
 KI 是一个独立项目，具体架构与实现会根据自身需求单独开发。感谢 Android 内核开源社区提供的大量工程实践与开源参考。
-
-## 配置与安全模式
-
-持久化配置由 `kicmd` 管理并写入 `config`，内核只负责读取配置，不再通过 ioctl 修改持久化配置。配置变更后 `kicmd` 会请求内核重新读取配置。
-
-`kicmd safemode enable` 创建 `/data/ki_userd/safemode` 空文件；`kicmd safemode disable` 删除该文件。内核启动后在最多 2 秒内非阻塞检查该文件，检测到后立即进入安全模式并停止检测；未检测到则结束检查，不进入安全模式。
-
-`debug` 开关文件已移除，调试日志统一写入 `debug.log`。
