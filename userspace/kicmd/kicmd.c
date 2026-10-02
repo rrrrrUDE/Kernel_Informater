@@ -14,6 +14,8 @@
 
 #include "kicmd_def.h"
 
+static int ki_ioctl(int fd, unsigned long request, void *arg);
+
 static void print_version(void)
 {
 	printf("Kernel Informater v%s\n", KICMD_VERSION);
@@ -102,7 +104,6 @@ static void debug_log(const char *fmt, ...)
 	fclose(fp);
 }
 static int open_ki(void);
-static int ki_ioctl(int fd, unsigned long request, void *arg);
 
 static bool kfunc_exists(const char *kfunc)
 {
