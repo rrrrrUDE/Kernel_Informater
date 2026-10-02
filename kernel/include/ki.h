@@ -14,6 +14,7 @@ struct ki_state {
 };
 
 extern struct ki_state ki_state;
+extern bool ki_debug;
 
 int ki_safemode_init(void);
 void ki_safemode_exit(void);
