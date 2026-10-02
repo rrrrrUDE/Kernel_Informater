@@ -9,30 +9,7 @@ Kernel Informater（KI）是一个面向 Android 的内核管理工具，通过�
 ## 内核集成
 
 ## ⚠️Kernel Informater会检查每一个钩子，如果缺少钩子会导致编译失败⚠️
-
-在目标内核源码根目录运行：
-
-```bash
-cd /path/to/kernel
-sh /path/to/Kernel-Informater/kernel/setup.sh
-```
-
-`setup.sh` 会询问是否启用自动 GKI Hook。输入 `y` 会启用自动 Kprobe Hook；直接回车或输入 `n` 则默认执行 `kernel/integrate.sh`，进行手动集成 Hook。
-
-也可以这样子：
-
-```bash
-sh /path/to/Kernel-Informater/kernel/setup.sh --auto-hook
-sh /path/to/Kernel-Informater/kernel/setup.sh --manual-hook
-```
-
-清理：
-
-```bash
-sh /path/to/Kernel-Informater/kernel/setup.sh --cleanup
-```
-
-详细说明见[集成文档](integrate/README.md)。
+请看[集成文档](integrate/README.md)。
 
 ## Kconfig
 
