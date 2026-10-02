@@ -15,7 +15,7 @@ Kernel Informater（KI）是一个面向 Android 的内核管理工具，通过�
 
 CONFIG_KI：启用Kernel Informater
 CONFIG_KI_DEBUG:开启调试模式
-CONFIG_KI_BOOTAPPLY：开机时自动应用配置（未启用需使用kicmd config active来激活）
+CONFIG_KI_BOOTAPPLY：开机时由内核读取并应用持久化配置
 CONFIG_KI_KPROBEHOOK：使用Kprobe来Hook(GKI Only ,关闭后会使用手动钩子来Hook）
 
 仓库默认保持自动 Hook 关闭。最小启用配置为：
@@ -36,10 +36,13 @@ CONFIG_KI_KPROBEHOOK=n
 
 ## Kernel Informater用户目录
 
-kicmd、配置和Debug日志会统一放在：
+配置、Debug日志和安全模式标记统一放在：
 
 ```text
-/data/adb/ki_userd/
+/data/ki_userd/
+├── config
+├── debug.log
+└── safemode       # 仅在安全模式启用时存在
 ```
 
 ## 许可证
@@ -51,3 +54,11 @@ kicmd、配置和Debug日志会统一放在：
  * [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): 钩子判断与setup.sh参考。
 
 KI 是一个独立项目，具体架构与实现会根据自身需求单独开发。感谢 Android 内核开源社区提供的大量工程实践与开源参考。
+
+## 配置与安全模式
+
+持久化配置由 `kicmd` 管理并写入 `config`，内核只负责读取配置，不再通过 ioctl 修改持久化配置。配置变更后 `kicmd` 会请求内核重新读取配置。
+
+`kicmd safemode enable` 创建 `/data/ki_userd/safemode` 空文件；`kicmd safemode disable` 删除该文件。内核启动后在最多 2 秒内非阻塞检查该文件，检测到后立即进入安全模式并停止检测；未检测到则结束检查，不进入安全模式。
+
+`debug` 开关文件已移除，调试日志统一写入 `debug.log`。
