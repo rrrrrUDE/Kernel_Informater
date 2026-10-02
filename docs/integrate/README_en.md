@@ -5,8 +5,7 @@
 Execute the following command in the root directory of the target kernel source:
 
 ```bash
-cd /path/to/kernel
-sh /path/to/Kernel-Informater/kernel/setup.sh
+curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash
 ```
 
 If no Hook parameter is specified, the script will prompt:
@@ -20,14 +19,13 @@ Enter `y` to use Kprobe Hook; entering `n` or anything else (including pressing 
 You can also use:
 
 ```bash
-sh /path/to/Kernel-Informater/kernel/setup.sh --auto-hook
-sh /path/to/Kernel-Informater/kernel/setup.sh --manual-hook
+curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --manual-hook
 ```
 
 If you want to use Kprobe Hook, execute:
 
 ```bash
-sh /path/to/Kernel-Informater/kernel/setup.sh --auto-hook
+curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --auto-hook
 ```
 
 Or enter `y` when prompted.
@@ -35,6 +33,5 @@ Or enter `y` when prompted.
 ## Clean Up Integration
 
 ```bash
-cd /path/to/kernel
-sh /path/to/Kernel-Informater/kernel/setup.sh --cleanup
+curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --cleanup
 ```
