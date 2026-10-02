@@ -56,8 +56,8 @@ int ki_config_set(const char *kfunc, const char *key, const char *value)
 		return -EINVAL;
 
 	func = ki_kfunc_find(kfunc);
-	if (!func || !func->config_set)
-		return -ENOENT;
+	if (!func || !func->config_set || !func->config_unset || !func->config_reset)
+		return -EOPNOTSUPP;
 
 	return func->config_set(key, value);
 }
@@ -70,8 +70,8 @@ int ki_config_unset(const char *kfunc, const char *key)
 		return -EINVAL;
 
 	func = ki_kfunc_find(kfunc);
-	if (!func || !func->config_unset)
-		return -ENOENT;
+	if (!func || !func->config_set || !func->config_unset || !func->config_reset)
+		return -EOPNOTSUPP;
 
 	return func->config_unset(key);
 }
@@ -84,8 +84,8 @@ int ki_config_del(const char *kfunc)
 		return -EINVAL;
 
 	func = ki_kfunc_find(kfunc);
-	if (!func || !func->config_reset)
-		return -ENOENT;
+	if (!func || !func->config_set || !func->config_unset || !func->config_reset)
+		return -EOPNOTSUPP;
 
 	return func->config_reset();
 }

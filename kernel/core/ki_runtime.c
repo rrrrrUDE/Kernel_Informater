@@ -80,8 +80,8 @@ int ki_func_set(const char *kfunc, const char *key, const char *value)
 	if (!kfunc || !key || !value)
 		return -EINVAL;
 	func = ki_kfunc_find(kfunc);
-	if (!func || !func->func_set)
-		return -ENOENT;
+	if (!func || !func->func_set || !func->func_unset || !func->func_reset)
+		return -EOPNOTSUPP;
 	return func->func_set(key, value);
 }
 
@@ -92,8 +92,8 @@ int ki_func_unset(const char *kfunc, const char *key)
 	if (!kfunc || !key)
 		return -EINVAL;
 	func = ki_kfunc_find(kfunc);
-	if (!func || !func->func_unset)
-		return -ENOENT;
+	if (!func || !func->func_set || !func->func_unset || !func->func_reset)
+		return -EOPNOTSUPP;
 	return func->func_unset(key);
 }
 
@@ -109,9 +109,9 @@ int ki_func_reset(const char *kfunc)
 	}
 
 	func = ki_kfunc_find("uname");
-	if (func && func->func_reset)
-		return func->func_reset();
-	return 0;
+	if (!func || !func->func_set || !func->func_unset || !func->func_reset)
+		return -EOPNOTSUPP;
+	return func->func_reset();
 }
 
 int ki_get_real(const char *kfunc, const char *key,
