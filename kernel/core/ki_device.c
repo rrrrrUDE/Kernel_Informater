@@ -123,6 +123,8 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return ki_config_active();
 	case KI_IOC_CONFIG_OFF:
 		return ki_config_inactive();
+	case KI_IOC_CONFIG_SYNC:
+		return ki_config_reload();
 	case KI_IOC_FUNC_VALUE_SET: {
 		struct ki_ioc_value value;
 		int ret = ki_copy_ioc_value(&value, arg);

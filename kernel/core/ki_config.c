@@ -26,19 +26,32 @@ bool ki_config_is_active(void)
 
 int ki_config_active(void)
 {
-	mutex_lock(&ki_state.lock);
-	ki_state.config_active = true;
-	mutex_unlock(&ki_state.lock);
+	bool already_active = ki_config_is_active();
+	int ret;
+
+	if (already_active)
+		return 1;
+
+	ret = ki_config_reload();
+	if (ret)
+		return ret;
+
+	if (!ki_config_is_active())
+		return -EINVAL;
+
 	pr_info("KI: persistent configuration activated\n");
 	return 0;
 }
 
 int ki_config_inactive(void)
 {
+	ki_config_for_each_reset();
+
 	mutex_lock(&ki_state.lock);
 	ki_state.config_active = false;
 	mutex_unlock(&ki_state.lock);
-	pr_info("KI: persistent configuration deactivated\n");
+
+	pr_info("KI: persistent configuration deactivated and reset\n");
 	return 0;
 }
 

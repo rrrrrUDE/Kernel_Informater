@@ -28,9 +28,9 @@ static int __init ki_core_init(void)
 	}
 
 #ifdef CONFIG_KI_BOOTAPPLY
-	ret = ki_config_reload();
-	if (ret)
-		pr_warn("KI: initial persistent configuration load failed: %d\n", ret);
+	ret = ki_config_active();
+	if (ret < 0)
+		pr_warn("KI: initial persistent configuration apply failed: %d\n", ret);
 #endif
 
 	ret = ki_safemode_init();

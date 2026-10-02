@@ -52,8 +52,9 @@ static int print_version(void)
 	}
 
 	close(fd);
-	printf("Kernel Informater v%u.%u.%u\n",
+	printf("Kernel Informater kernel v%u.%u.%u\n",
 	       version.major, version.minor, version.patch);
+	printf("Kernel Informater kicmd v%s\n", KICMD_VERSION_STRING);
 	return 0;
 }
 
@@ -175,7 +176,29 @@ static int open_ki_checked(void)
 }
 
 static int cfg_set_active(bool active);
+static int cfg_sync(void);
 static int cfg_set_active_and_ioctl(bool active);
+
+static int cfg_sync(void)
+{
+	int fd;
+	int ret;
+
+	fd = open_ki_checked();
+	if (fd < 0)
+		return 1;
+
+	ret = ki_ioctl(fd, KI_IOC_CONFIG_SYNC, NULL);
+	if (ret < 0) {
+		fprintf(stderr, "%s: config sync: %s\n",
+			KICMD_NAME, strerror(errno));
+		close(fd);
+		return 1;
+	}
+
+	close(fd);
+	return 0;
+}
 
 static int cfg_set_active_and_ioctl(bool active)
 {
@@ -186,7 +209,27 @@ static int cfg_set_active_and_ioctl(bool active)
 	if (fd < 0)
 		return 1;
 
-	ret = cfg_set_active(active);
+	if (!active) {
+		ret = cfg_set_active(false);
+		if (ret) {
+			fprintf(stderr, "%s: save config: %s\n",
+				KICMD_NAME, strerror(-ret));
+			close(fd);
+			return 1;
+		}
+		ret = ki_ioctl(fd, KI_IOC_CONFIG_OFF, NULL);
+		if (ret < 0) {
+			fprintf(stderr, "%s: config inactive: %s\n",
+				KICMD_NAME, strerror(errno));
+			close(fd);
+			return 1;
+		}
+		close(fd);
+		printf("Kernel Informater: persistent configuration deactivated and reset\n");
+		return 0;
+	}
+
+	ret = cfg_set_active(true);
 	if (ret) {
 		fprintf(stderr, "%s: save config: %s\n",
 			KICMD_NAME, strerror(-ret));
@@ -194,15 +237,20 @@ static int cfg_set_active_and_ioctl(bool active)
 		return 1;
 	}
 
-	ret = ki_ioctl(fd, active ? KI_IOC_CONFIG_ON : KI_IOC_CONFIG_OFF, NULL);
+	ret = ki_ioctl(fd, KI_IOC_CONFIG_ON, NULL);
 	if (ret < 0) {
-		fprintf(stderr, "%s: config %s: %s\n",
-			KICMD_NAME, active ? "active" : "inactive", strerror(errno));
+		fprintf(stderr, "%s: config active: %s\n",
+			KICMD_NAME, strerror(errno));
 		close(fd);
 		return 1;
 	}
 
 	close(fd);
+	if (ret > 0) {
+		printf("Kernel Informater: persistent configuration already active; no operation performed\n");
+		return 0;
+	}
+	printf("Kernel Informater: persistent configuration activated\n");
 	return 0;
 }
 
@@ -592,6 +640,9 @@ static int cmd_config(int argc, char **argv)
 			ret = cfg_set(kfunc, key, value);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+		ret = cfg_sync();
+		if (ret)
+			return ret;
 		debug_log("config set %s.%s=%s", kfunc, key, value);
 		return 0;
 	}
@@ -611,6 +662,9 @@ static int cmd_config(int argc, char **argv)
 			ret = cfg_unset(kfunc, key);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+		ret = cfg_sync();
+		if (ret)
+			return ret;
 		debug_log("config unset %s.%s", kfunc, key);
 		return 0;
 	}
@@ -630,6 +684,9 @@ static int cmd_config(int argc, char **argv)
 			ret = cfg_reset_kfunc(kfunc);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+		ret = cfg_sync();
+		if (ret)
+			return ret;
 		debug_log("config del %s", kfunc);
 		return 0;
 	}
@@ -650,12 +707,18 @@ static int cmd_config(int argc, char **argv)
 				ret = cfg_reset_kfunc(kfunc);
 			if (ret)
 				return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-			debug_log("config reset %s", kfunc);
+			ret = cfg_sync();
+		if (ret)
+			return ret;
+		debug_log("config reset %s", kfunc);
 			return 0;
 		}
 		ret = cfg_reset_all();
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+		ret = cfg_sync();
+		if (ret)
+			return ret;
 		debug_log("config reset all");
 		return 0;
 	}

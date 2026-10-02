@@ -7,6 +7,11 @@
 
 #define KICMD_NAME "kicmd"
 
+#define KICMD_VERSION_MAJOR 1
+#define KICMD_VERSION_MINOR 0
+#define KICMD_VERSION_PATCH 0
+#define KICMD_VERSION_STRING "1.0.0"
+
 /* All KI userspace state intentionally lives below /data/adb/ki_user. */
 #define KICMD_USER_DIR         KI_USER_DIR
 #define KI_USER_CONFIG        KI_USER_CONFIG_PATH
