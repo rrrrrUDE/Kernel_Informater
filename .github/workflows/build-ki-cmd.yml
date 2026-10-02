@@ -23,7 +23,25 @@ permissions:
   contents: read
 
 jobs:
+  host-smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build and test ki_cmd on host
+        run: |
+          set -euo pipefail
+
+          mkdir -p build/ki_cmd/host
+
+          cc             -std=c11             -O2             -Wall             -Wextra             -D_GNU_SOURCE=1             -I"$GITHUB_WORKSPACE/uapi"             "$GITHUB_WORKSPACE/userspace/kicmd/kicmd.c"             -o build/ki_cmd/host/kicmd
+
+          build/ki_cmd/host/kicmd --version
+          build/ki_cmd/host/kicmd --help
+
   build:
+    needs: host-smoke-test
     strategy:
       fail-fast: false
       matrix:
@@ -77,9 +95,8 @@ jobs:
             -pie \
             -o "$OUT"
 
-          "$OUT" --version
-          "$OUT" --help
           file "$OUT"
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$OUT" | grep -E 'Class:|Machine:'
 
       - name: Upload ki_cmd artifact
         uses: actions/upload-artifact@v7
