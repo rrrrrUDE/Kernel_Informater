@@ -113,7 +113,7 @@ static int check_driver_fd(int fd)
 
 static int open_ki_checked(void)
 {
-	int fd = open_ki_checked();
+	int fd = open_ki();
 
 	if (fd < 0)
 		return -1;
