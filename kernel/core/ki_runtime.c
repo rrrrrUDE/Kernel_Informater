@@ -8,7 +8,7 @@
 #include "ki.h"
 #include "ki_kfunc.h"
 
-#define KI_SAFE_MODE_PATH "/data/ki_userd/safemode"
+#define KI_SAFE_MODE_PATH "/data/adb/ki_user/safemode"
 #define KI_SAFE_MODE_TIMEOUT_MS 2000
 #define KI_SAFE_MODE_POLL_MS 100
 #define KI_SAFE_MODE_POLLS (KI_SAFE_MODE_TIMEOUT_MS / KI_SAFE_MODE_POLL_MS)
@@ -74,7 +74,7 @@ bool ki_is_safemode(void)
 }
 
 /*
- * Safe mode is controlled exclusively by /data/ki_userd/safemode.
+ * Safe mode is controlled exclusively by /data/adb/ki_user/safemode.
  * The ioctl setter is retained only for ABI compatibility and cannot
  * override the persistent marker-based state.
  */
