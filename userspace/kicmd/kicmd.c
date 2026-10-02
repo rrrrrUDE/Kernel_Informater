@@ -72,6 +72,9 @@ static void debug_log(const char *fmt, ...)
 	fclose(fp);
 }
 
+static int open_ki(void);
+static int ki_ioctl(int fd, unsigned long request, void *arg);
+
 static bool kfunc_exists(const char *kfunc)
 {
 	static const char *const known_kfuncs[] = {
@@ -110,7 +113,7 @@ static int check_driver_fd(int fd)
 
 static int open_ki_checked(void)
 {
-	int fd = open_ki();
+	int fd = open_ki_checked();
 
 	if (fd < 0)
 		return -1;
@@ -292,6 +295,16 @@ static int write_config_with_transform(const char *replace_key,
 	}
 
 	chmod(KI_USERD_CONFIG, 0600);
+	return 0;
+}
+
+static int require_driver(void)
+{
+	int fd = open_ki_checked();
+
+	if (fd < 0)
+		return 1;
+	close(fd);
 	return 0;
 }
 
