@@ -25,5 +25,8 @@ struct ki_kfunc {
 int ki_kfunc_register(struct ki_kfunc *kfunc);
 int ki_kfunc_unregister(struct ki_kfunc *kfunc);
 struct ki_kfunc *ki_kfunc_find(const char *name);
+struct ki_kfunc *ki_kfunc_find_by_index(unsigned int index);
+int ki_kfunc_reset_all_config(void);
+int ki_kfunc_reset_all_func(void);
 
 #endif /* _KI_KFUNC_H */

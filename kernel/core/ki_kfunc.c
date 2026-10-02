@@ -42,6 +42,60 @@ struct ki_kfunc *ki_kfunc_find(const char *name)
 	return kfunc;
 }
 
+struct ki_kfunc *ki_kfunc_find_by_index(unsigned int index)
+{
+	struct ki_kfunc_node *node;
+	struct ki_kfunc *kfunc = NULL;
+	unsigned int i = 0;
+
+	mutex_lock(&ki_kfunc_lock);
+	list_for_each_entry(node, &ki_kfunc_list, list) {
+		if (i++ == index) {
+			kfunc = node->kfunc;
+			break;
+		}
+	}
+	mutex_unlock(&ki_kfunc_lock);
+
+	return kfunc;
+}
+
+int ki_kfunc_reset_all_config(void)
+{
+	struct ki_kfunc_node *node;
+	int ret = 0;
+
+	mutex_lock(&ki_kfunc_lock);
+	list_for_each_entry(node, &ki_kfunc_list, list) {
+		if (node->kfunc->config_reset) {
+			int current = node->kfunc->config_reset();
+			if (current && !ret)
+				ret = current;
+		}
+	}
+	mutex_unlock(&ki_kfunc_lock);
+
+	return ret;
+}
+
+int ki_kfunc_reset_all_func(void)
+{
+	struct ki_kfunc_node *node;
+	int ret = 0;
+
+	mutex_lock(&ki_kfunc_lock);
+	list_for_each_entry(node, &ki_kfunc_list, list) {
+		if (node->kfunc->func_reset) {
+			int current = node->kfunc->func_reset();
+			if (current && !ret)
+				ret = current;
+		}
+	}
+	mutex_unlock(&ki_kfunc_lock);
+
+	return ret;
+}
+
 int ki_kfunc_register(struct ki_kfunc *kfunc)
 {
 	struct ki_kfunc_node *node;

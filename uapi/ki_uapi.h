@@ -34,6 +34,7 @@ enum ki_ioctl_nr {
 	KI_IOCTL_NR_FUNC_UNSET,
 	KI_IOCTL_NR_FUNC_RESET,
 	KI_IOCTL_NR_GET_REAL,
+	KI_IOCTL_NR_GET_KFUNC_LIST,
 };
 
 struct ki_ioc_version {
@@ -53,6 +54,12 @@ struct ki_ioc_debug {
 struct ki_ioc_kfunc_features {
 	char kfunc[KI_UAPI_KFUNC_MAX];
 	__u32 features;
+};
+
+struct ki_ioc_kfunc_info {
+	__u32 index;
+	__u32 features;
+	char kfunc[KI_UAPI_KFUNC_MAX];
 };
 
 struct ki_ioc_value {
@@ -79,6 +86,7 @@ struct ki_ioc_real {
 #define KI_IOC_GET_VERSION 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_VERSION, struct ki_ioc_version)
 #define KI_IOC_GET_DEBUG 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_DEBUG, struct ki_ioc_debug)
 #define KI_IOC_GET_KFUNC_FEATURES 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_KFUNC_FEATURES, struct ki_ioc_kfunc_features)
+#define KI_IOC_GET_KFUNC_LIST 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_KFUNC_LIST, struct ki_ioc_kfunc_info)
 #define KI_IOC_CONFIG_ON 	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_ACTIVE)
 #define KI_IOC_CONFIG_OFF 	_IO(KI_IOC_MAGIC, KI_IOCTL_NR_CONFIG_INACTIVE)
 #define KI_IOC_FUNC_VALUE_SET 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FUNC_SET, struct ki_ioc_value)

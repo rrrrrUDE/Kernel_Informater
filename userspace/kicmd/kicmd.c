@@ -478,6 +478,15 @@ memset(&v, 0, sizeof(v));
 	fd = open_ki_checked();
 	if (fd < 0)
 		return 1;
+	{
+		int feature_ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_FUNC);
+		if (feature_ret) {
+			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
+				KICMD_NAME, kfunc, strerror(-feature_ret));
+			close(fd);
+			return 1;
+		}
+	}
 	if (ki_ioctl(fd, request, &v) < 0) {
 		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
 		close(fd);
@@ -497,6 +506,15 @@ memset(&v, 0, sizeof(v));
 	fd = open_ki_checked();
 	if (fd < 0)
 		return 1;
+	if (kfunc && *kfunc) {
+		int feature_ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_FUNC);
+		if (feature_ret) {
+			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
+				KICMD_NAME, kfunc, strerror(-feature_ret));
+			close(fd);
+			return 1;
+		}
+	}
 	if (ki_ioctl(fd, request, &v) < 0) {
 		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
 		close(fd);
@@ -621,21 +639,21 @@ static int cmd_config(int argc, char **argv)
 			return fprintf(stderr, "%s: usage: config reset [<kfunc>]\n", KICMD_NAME), 1;
 		if (argc == 3) {
 			kfunc = argv[2];
-ret = cfg_reset_kfunc(kfunc);
+			{
+				int fd = open_ki_checked();
+				if (fd < 0)
+					return 1;
+				ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_CONFIG);
+				close(fd);
+			}
+			if (!ret)
+				ret = cfg_reset_kfunc(kfunc);
 			if (ret)
 				return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
 			debug_log("config reset %s", kfunc);
 			return 0;
 		}
-		{
-			int fd = open_ki_checked();
-			if (fd < 0)
-				return 1;
-			ret = check_kfunc_feature(fd, "uname", KI_KFUNC_FEATURE_CONFIG);
-			close(fd);
-		}
-		if (!ret)
-			ret = cfg_reset_all();
+		ret = cfg_reset_all();
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
 		debug_log("config reset all");

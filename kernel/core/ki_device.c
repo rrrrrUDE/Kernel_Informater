@@ -82,6 +82,35 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
+	case KI_IOC_GET_KFUNC_LIST: {
+		struct ki_ioc_kfunc_info info;
+		struct ki_kfunc *kfunc;
+		unsigned int index;
+
+		if (copy_from_user(&info, (void __user *)arg, sizeof(info)))
+			return -EFAULT;
+		index = info.index;
+
+		kfunc = ki_kfunc_find_by_index(index);
+		if (!kfunc)
+			return -ENOENT;
+
+		memset(&info, 0, sizeof(info));
+		info.index = index;
+		strscpy(info.kfunc, kfunc->name, sizeof(info.kfunc));
+		if (kfunc->config_set && kfunc->config_unset &&
+		    kfunc->config_reset)
+			info.features |= KI_KFUNC_FEATURE_CONFIG;
+		if (kfunc->func_set && kfunc->func_unset &&
+		    kfunc->func_reset)
+			info.features |= KI_KFUNC_FEATURE_FUNC;
+		if (kfunc->get_real)
+			info.features |= KI_KFUNC_FEATURE_GET_REAL;
+
+		if (copy_to_user((void __user *)arg, &info, sizeof(info)))
+			return -EFAULT;
+		return 0;
+	}
 	case KI_IOC_GET_DEBUG: {
 		struct ki_ioc_debug debug = {
 			.enabled = ki_debug ? 1 : 0,

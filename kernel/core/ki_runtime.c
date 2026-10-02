@@ -103,15 +103,13 @@ int ki_func_reset(const char *kfunc)
 
 	if (kfunc && *kfunc) {
 		func = ki_kfunc_find(kfunc);
-		if (!func || !func->func_reset)
-			return -ENOENT;
+		if (!func || !func->func_set || !func->func_unset ||
+		    !func->func_reset)
+			return -EOPNOTSUPP;
 		return func->func_reset();
 	}
 
-	func = ki_kfunc_find("uname");
-	if (!func || !func->func_set || !func->func_unset || !func->func_reset)
-		return -EOPNOTSUPP;
-	return func->func_reset();
+	return ki_kfunc_reset_all_func();
 }
 
 int ki_get_real(const char *kfunc, const char *key,

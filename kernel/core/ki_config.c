@@ -10,13 +10,7 @@
 
 static int ki_config_for_each_reset(void)
 {
-	struct ki_kfunc *func;
-
-	func = ki_kfunc_find("uname");
-	if (func && func->config_reset)
-		return func->config_reset();
-
-	return 0;
+	return ki_kfunc_reset_all_config();
 }
 
 bool ki_config_is_active(void)
@@ -171,8 +165,14 @@ int ki_config_reload(void)
 			continue;
 		}
 
-		if (!strncmp(key, "uname.", 6)) {
-			ret = ki_config_set("uname", key + 6, value);
+		{
+			char *dot = strchr(key, '.');
+
+			if (!dot || dot == key || !*(dot + 1))
+				continue;
+
+			*dot = '\0';
+			ret = ki_config_set(key, dot + 1, value);
 			if (ret)
 				pr_warn("KI: invalid config %s=%s: %d\n",
 					key, value, ret);
