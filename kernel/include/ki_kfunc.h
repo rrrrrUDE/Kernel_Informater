@@ -20,6 +20,7 @@ struct ki_kfunc {
 	int (*func_reset)(void);
 
 	int (*get_real)(const char *key, char *value, size_t size);
+	int (*get_real_key)(unsigned int index, char *key, size_t size);
 };
 
 int ki_kfunc_register(struct ki_kfunc *kfunc);

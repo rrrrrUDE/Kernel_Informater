@@ -762,11 +762,34 @@ static int list_real_one(int fd, const char *kfunc, const char *key)
 	return 0;
 }
 
+static int list_real_kfunc(int fd, const char *kfunc)
+{
+	struct ki_ioc_real_key_info info;
+	unsigned int index = 0;
+	int ret;
+
+	for (;;) {
+		memset(&info, 0, sizeof(info));
+		info.index = index;
+		strncpy(info.kfunc, kfunc, sizeof(info.kfunc) - 1);
+		ret = ki_ioctl(fd, KI_IOC_GET_REAL_KEY_LIST, &info);
+		if (ret < 0) {
+			if (errno == ENOENT && index > 0)
+				return 0;
+			return -errno;
+		}
+		ret = list_real_one(fd, info.kfunc, info.key);
+		if (ret)
+			return ret;
+		index++;
+	}
+}
+
 static int cmd_list(int argc, char **argv)
 {
 	int fd;
-	int i;
-	int ret;
+	unsigned int index = 0;
+	int ret = 0;
 	const char *kfunc = NULL;
 
 	if (argc > 2) {
@@ -778,34 +801,44 @@ static int cmd_list(int argc, char **argv)
 		fputs(kicmd_help_list, stdout);
 		return 0;
 	}
-
-	if (argc == 2) {
+	if (argc == 2)
 		kfunc = argv[1];
-}
 
 	fd = open_ki_checked();
 	if (fd < 0)
 		return 1;
 
-	if (!kfunc || !strcmp(kfunc, "uname")) {
-		for (i = 0; i < KICMD_UNAME_KEY_COUNT; ++i) {
-			ret = list_real_one(fd, "uname", kicmd_uname_keys[i]);
-			if (ret) {
-				fprintf(stderr, "%s: list uname.%s: %s\n",
-					KICMD_NAME, kicmd_uname_keys[i],
-					strerror(-ret));
-				close(fd);
-				return 1;
-			}
-		}
+	if (kfunc) {
+		ret = list_real_kfunc(fd, kfunc);
 	} else {
-		ret = list_real_one(fd, kfunc, "release");
-		if (ret) {
-			fprintf(stderr, "%s: list %s: %s\n",
-				KICMD_NAME, kfunc, strerror(-ret));
-			close(fd);
-			return 1;
+		for (;;) {
+			struct ki_ioc_kfunc_info info;
+
+			memset(&info, 0, sizeof(info));
+			info.index = index++;
+			ret = ki_ioctl(fd, KI_IOC_GET_KFUNC_LIST, &info);
+			if (ret < 0) {
+				if (errno == ENOENT && index > 0) {
+					ret = 0;
+					break;
+				}
+				ret = -errno;
+				break;
+			}
+			if (!(info.features & KI_KFUNC_FEATURE_GET_REAL))
+				continue;
+			ret = list_real_kfunc(fd, info.kfunc);
+			if (ret)
+				break;
 		}
+	}
+
+	if (ret) {
+		fprintf(stderr, "%s: list%s%s: %s\n",
+			KICMD_NAME, kfunc ? " " : "", kfunc ? kfunc : "all",
+			strerror(-ret));
+		close(fd);
+		return 1;
 	}
 
 	close(fd);

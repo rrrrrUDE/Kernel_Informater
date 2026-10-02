@@ -101,6 +101,19 @@ static int ki_uname_func_reset(void)
 	return ki_uname_func_unset("release");
 }
 
+static int ki_uname_get_real_key(unsigned int index, char *key, size_t size)
+{
+	static const char *const keys[] = {
+		"sysname", "nodename", "release", "version", "machine", "domainname",
+	};
+
+	if (!key || !size || index >= ARRAY_SIZE(keys))
+		return -ENOENT;
+
+	strscpy(key, keys[index], size);
+	return 0;
+}
+
 static int ki_uname_get_real(const char *key, char *value, size_t size)
 {
 	const struct new_utsname *u;
@@ -195,4 +208,5 @@ struct ki_kfunc ki_uname_kfunc = {
 	.func_unset = ki_uname_func_unset,
 	.func_reset = ki_uname_func_reset,
 	.get_real = ki_uname_get_real,
+	.get_real_key = ki_uname_get_real_key,
 };

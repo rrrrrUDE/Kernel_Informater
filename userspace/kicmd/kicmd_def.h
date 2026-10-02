@@ -38,17 +38,6 @@
 #define KICMD_SUB_INACTIVE  "inactive"
 #define KICMD_SUB_LIST      "list"
 
-#define KICMD_UNAME_KEY_COUNT 6
-
-static const char *const kicmd_uname_keys[KICMD_UNAME_KEY_COUNT] = {
-	"sysname",
-	"nodename",
-	"release",
-	"version",
-	"machine",
-	"domainname",
-};
-
 static const char kicmd_help[] =
 	"Kernel Informater userspace cli\n"
 	"\n"

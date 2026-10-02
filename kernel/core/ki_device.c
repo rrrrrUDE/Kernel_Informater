@@ -111,6 +111,34 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
+	case KI_IOC_GET_REAL_KEY_LIST: {
+		struct ki_ioc_real_key_info info;
+		struct ki_kfunc *kfunc;
+		char key[KI_UAPI_KEY_MAX];
+		unsigned int index;
+
+		if (copy_from_user(&info, (void __user *)arg, sizeof(info)))
+			return -EFAULT;
+		if (!memchr(info.kfunc, '\0', sizeof(info.kfunc)))
+			return -EINVAL;
+
+		index = info.index;
+		kfunc = ki_kfunc_find(info.kfunc);
+		if (!kfunc || !kfunc->get_real || !kfunc->get_real_key)
+			return -EOPNOTSUPP;
+
+		memset(key, 0, sizeof(key));
+		if (kfunc->get_real_key(index, key, sizeof(key)))
+			return -ENOENT;
+
+		memset(&info, 0, sizeof(info));
+		info.index = index;
+		strscpy(info.kfunc, kfunc->name, sizeof(info.kfunc));
+		strscpy(info.key, key, sizeof(info.key));
+		if (copy_to_user((void __user *)arg, &info, sizeof(info)))
+			return -EFAULT;
+		return 0;
+	}
 	case KI_IOC_GET_DEBUG: {
 		struct ki_ioc_debug debug = {
 			.enabled = ki_debug ? 1 : 0,
