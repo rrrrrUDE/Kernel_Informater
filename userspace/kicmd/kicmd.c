@@ -132,27 +132,6 @@ static int open_ki_checked(void)
 	return fd;
 }
 
-static int ioctl_reload_config(void)
-{
-	int fd;
-	int ret;
-
-	fd = open_ki_checked();
-	if (fd < 0)
-		return 1;
-
-	ret = ki_ioctl(fd, KI_IOC_CONFIG_RELOAD, NULL);
-	if (ret < 0) {
-		fprintf(stderr, "%s: config reload: %s\\n",
-			KICMD_NAME, strerror(errno));
-		close(fd);
-		return 1;
-	}
-
-	close(fd);
-	return 0;
-}
-
 static int require_driver(void)
 {
 	int fd = open_ki_checked();
@@ -519,7 +498,7 @@ static int cmd_config(int argc, char **argv)
 		if (argc != 5)
 			return fprintf(stderr, "%s: usage: config set <kfunc> <key> <value>\n", KICMD_NAME), 1;
 		kfunc = argv[2]; key = argv[3]; value = argv[4];
-		if (check_kfunc(kfunc) || require_driver())
+		if (check_kfunc(kfunc))
 			return 1;
 		ret = cfg_set(kfunc, key, value);
 		if (ret)
@@ -533,7 +512,7 @@ static int cmd_config(int argc, char **argv)
 		if (argc != 4)
 			return fprintf(stderr, "%s: usage: config unset <kfunc> <key>\n", KICMD_NAME), 1;
 		kfunc = argv[2]; key = argv[3];
-		if (check_kfunc(kfunc) || require_driver())
+		if (check_kfunc(kfunc))
 			return 1;
 		ret = cfg_unset(kfunc, key);
 		if (ret)
@@ -547,14 +526,13 @@ static int cmd_config(int argc, char **argv)
 		if (argc != 3)
 			return fprintf(stderr, "%s: usage: config del <kfunc>\n", KICMD_NAME), 1;
 		kfunc = argv[2];
-		if (check_kfunc(kfunc) || require_driver())
+		if (check_kfunc(kfunc))
 			return 1;
 		ret = cfg_reset_kfunc(kfunc);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-		ret = ioctl_reload_config();
 		debug_log("config del %s", kfunc);
-		return ret;
+		return 0;
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_RESET)) {
@@ -567,20 +545,14 @@ static int cmd_config(int argc, char **argv)
 			ret = cfg_reset_kfunc(kfunc);
 			if (ret)
 				return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-			ret = ioctl_reload_config();
 			debug_log("config reset %s", kfunc);
-			return ret;
+			return 0;
 		}
-		if (require_driver())
-			return 1;
 		ret = cfg_reset_all();
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-		ret = ioctl_reload_config();
-		if (ret)
-			return ret;
 		debug_log("config reset all");
-		return ret < 0 ? 1 : 0;
+		return 0;
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_ACTIVE) || !strcmp(argv[1], KICMD_SUB_INACTIVE)) {
@@ -590,11 +562,8 @@ static int cmd_config(int argc, char **argv)
 		ret = cfg_set_active(active);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-		ret = ioctl_reload_config();
-		if (ret)
-			return ret;
 		debug_log("config %s", argv[1]);
-		return ret < 0 ? 1 : 0;
+		return 0;
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_LIST)) {
