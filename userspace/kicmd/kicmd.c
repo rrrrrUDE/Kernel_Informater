@@ -219,8 +219,10 @@ static int cfg_set_active_and_ioctl(bool active)
 		}
 		ret = ki_ioctl(fd, KI_IOC_CONFIG_OFF, NULL);
 		if (ret < 0) {
+			int saved_errno = errno;
+			cfg_set_active(true);
 			fprintf(stderr, "%s: config inactive: %s\n",
-				KICMD_NAME, strerror(errno));
+				KICMD_NAME, strerror(saved_errno));
 			close(fd);
 			return 1;
 		}
@@ -239,8 +241,10 @@ static int cfg_set_active_and_ioctl(bool active)
 
 	ret = ki_ioctl(fd, KI_IOC_CONFIG_ON, NULL);
 	if (ret < 0) {
+		int saved_errno = errno;
+		cfg_set_active(false);
 		fprintf(stderr, "%s: config active: %s\n",
-			KICMD_NAME, strerror(errno));
+			KICMD_NAME, strerror(saved_errno));
 		close(fd);
 		return 1;
 	}

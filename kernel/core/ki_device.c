@@ -75,7 +75,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (kfunc->func_set && kfunc->func_unset &&
 		    kfunc->func_reset)
 			info.features |= KI_KFUNC_FEATURE_FUNC;
-		if (kfunc->get_real)
+		if (kfunc->get_real && kfunc->get_real_key)
 			info.features |= KI_KFUNC_FEATURE_GET_REAL;
 
 		if (copy_to_user((void __user *)arg, &info, sizeof(info)))

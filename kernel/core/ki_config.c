@@ -158,11 +158,9 @@ int ki_config_reload(void)
 		line = strim(line);
 		if (!*line || *line == '#')
 			continue;
-
 		eq = strchr(line, '=');
 		if (!eq)
 			continue;
-
 		*eq = '\0';
 		key = strim(line);
 		value = strim(eq + 1);
@@ -172,25 +170,50 @@ int ki_config_reload(void)
 				active = true;
 			else if (!strcmp(value, "0"))
 				active = false;
-			continue;
-		}
-
-		{
-			char *dot = strchr(key, '.');
-
-			if (!dot || dot == key || !*(dot + 1))
-				continue;
-
-			*dot = '\0';
-			ret = ki_config_set(key, dot + 1, value);
-			if (ret)
-				pr_warn("KI: invalid config %s=%s: %d\n",
-					key, value, ret);
 		}
 	}
 
+	/* inactive means no persistent overrides may remain applied. */
+	if (!active) {
+		ki_config_for_each_reset();
+	} else {
+		cursor = buf;
+		while ((line = strsep(&cursor, "\n")) != NULL) {
+			char *eq;
+			char *key;
+			char *value;
+			char *dot;
+
+			line = strim(line);
+			if (!*line || *line == '#')
+				continue;
+			eq = strchr(line, '=');
+			if (!eq)
+				continue;
+			*eq = '\0';
+			key = strim(line);
+			value = strim(eq + 1);
+			if (!strcmp(key, "active"))
+				continue;
+
+			dot = strchr(key, '.');
+			if (!dot || dot == key || !*(dot + 1))
+				continue;
+			*dot = '\0';
+			ret = ki_config_set(key, dot + 1, value);
+			if (ret) {
+				pr_warn("KI: invalid config %s=%s: %d\n",
+					key, value, ret);
+				break;
+			}
+		}
+	}
+
+	if (ret)
+		ki_config_for_each_reset();
+
 	mutex_lock(&ki_state.lock);
-	ki_state.config_active = active;
+	ki_state.config_active = active && !ret;
 	mutex_unlock(&ki_state.lock);
 
 	kfree(buf);
