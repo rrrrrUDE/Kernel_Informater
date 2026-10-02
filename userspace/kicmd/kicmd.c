@@ -384,7 +384,7 @@ static int ioctl_value(unsigned long request,
 	if (value)
 		strncpy(v.value, value, sizeof(v.value) - 1);
 
-	fd = open_ki();
+	fd = open_ki_checked();
 	if (fd < 0)
 		return 1;
 	if (ki_ioctl(fd, request, &v) < 0) {
@@ -407,7 +407,7 @@ static int ioctl_key(unsigned long request, const char *kfunc, const char *key)
 	strncpy(v.kfunc, kfunc, sizeof(v.kfunc) - 1);
 	if (key)
 		strncpy(v.key, key, sizeof(v.key) - 1);
-	fd = open_ki();
+	fd = open_ki_checked();
 	if (fd < 0)
 		return 1;
 	if (ki_ioctl(fd, request, &v) < 0) {
@@ -429,7 +429,7 @@ static int ioctl_kfunc(unsigned long request, const char *kfunc)
 	memset(&v, 0, sizeof(v));
 	if (kfunc)
 		strncpy(v.kfunc, kfunc, sizeof(v.kfunc) - 1);
-	fd = open_ki();
+	fd = open_ki_checked();
 	if (fd < 0)
 		return 1;
 	if (ki_ioctl(fd, request, &v) < 0) {
