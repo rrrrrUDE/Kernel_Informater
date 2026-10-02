@@ -98,7 +98,7 @@ int ki_config_reset(const char *kfunc)
 	return ki_config_for_each_reset();
 }
 
-#define KI_CONFIG_PATH "/data/ki_userd/config"
+#define KI_CONFIG_PATH "/data/adb/ki_user/config"
 #define KI_CONFIG_MAX_SIZE (64 * 1024)
 
 int ki_config_reload(void)
