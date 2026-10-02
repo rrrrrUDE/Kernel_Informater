@@ -8,6 +8,8 @@
 
 extern struct ki_kfunc ki_uname_kfunc;
 
+bool ki_debug = IS_ENABLED(CONFIG_KI_DEBUG);
+
 struct ki_state ki_state = {
 	.safemode = false,
 	.config_active = false,
