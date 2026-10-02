@@ -550,40 +550,28 @@ static int cmd_config(int argc, char **argv)
 			debug_log("config reset %s", kfunc);
 			return ret;
 		}
+		if (require_driver())
+			return 1;
 		ret = cfg_reset_all();
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-		ret = ioctl_kfunc(KI_IOC_CONFIG_KFUNC_RESET, "");
+		ret = ioctl_reload_config();
 		if (ret)
 			return ret;
-		{
-			int fd = open_ki_checked();
-			if (fd < 0)
-				return 1;
-			ret = ki_ioctl(fd, KI_IOC_CONFIG_OFF, NULL);
-			if (ret < 0)
-				fprintf(stderr, "%s: config reset active state: %s\n",
-					KICMD_NAME, strerror(errno));
-			close(fd);
-		}
 		debug_log("config reset all");
 		return ret < 0 ? 1 : 0;
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_ACTIVE) || !strcmp(argv[1], KICMD_SUB_INACTIVE)) {
 		bool active = !strcmp(argv[1], KICMD_SUB_ACTIVE);
+		if (require_driver())
+			return 1;
 		ret = cfg_set_active(active);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-		{
-			int fd = open_ki_checked();
-			if (fd < 0)
-				return 1;
-			ret = ki_ioctl(fd, active ? KI_IOC_CONFIG_ON : KI_IOC_CONFIG_OFF, NULL);
-			if (ret < 0)
-				fprintf(stderr, "%s: config active state: %s\n", KICMD_NAME, strerror(errno));
-			close(fd);
-		}
+		ret = ioctl_reload_config();
+		if (ret)
+			return ret;
 		debug_log("config %s", argv[1]);
 		return ret < 0 ? 1 : 0;
 	}
