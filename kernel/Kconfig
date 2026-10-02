@@ -17,8 +17,7 @@ config KI_BOOTAPPLY
 	bool "Kernel Informater boot apply"
 	default n
 	help
-	  Enable the boot-apply integration point used by the KI userspace
-	  service to restore persistent configuration from /data/adb/ki_userd.
+	  Let the kernel read and apply persistent configuration from /data/ki_userd/config at boot.
 
 config KI_KPROBEHOOK
 	bool "Kernel Informater automatic GKI hook"
