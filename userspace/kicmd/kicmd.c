@@ -110,27 +110,6 @@ static int open_ki(void)
 	return fd;
 }
 
-static int ioctl_reload_config(void)
-{
-	int fd;
-	int ret;
-
-	fd = open_ki_checked();
-	if (fd < 0)
-		return 1;
-
-	ret = ki_ioctl(fd, KI_IOC_CONFIG_RELOAD, NULL);
-	if (ret < 0) {
-		fprintf(stderr, "%s: config reload: %s\\n",
-			KICMD_NAME, strerror(errno));
-		close(fd);
-		return 1;
-	}
-
-	close(fd);
-	return 0;
-}
-
 static int open_ki_checked(void)
 {
 	int fd = open_ki();
@@ -151,6 +130,27 @@ static int open_ki_checked(void)
 		}
 	}
 	return fd;
+}
+
+static int ioctl_reload_config(void)
+{
+	int fd;
+	int ret;
+
+	fd = open_ki_checked();
+	if (fd < 0)
+		return 1;
+
+	ret = ki_ioctl(fd, KI_IOC_CONFIG_RELOAD, NULL);
+	if (ret < 0) {
+		fprintf(stderr, "%s: config reload: %s\\n",
+			KICMD_NAME, strerror(errno));
+		close(fd);
+		return 1;
+	}
+
+	close(fd);
+	return 0;
 }
 
 static int require_driver(void)
