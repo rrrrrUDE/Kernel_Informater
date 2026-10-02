@@ -1,9 +1,67 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 #include <linux/errno.h>
 #include <linux/kernel.h>
+#include <linux/delay.h>
+#include <linux/fs.h>
+#include <linux/workqueue.h>
 
 #include "ki.h"
 #include "ki_kfunc.h"
+
+#define KI_SAFE_MODE_PATH "/data/ki_userd/safemode"
+#define KI_SAFE_MODE_TIMEOUT_MS 2000
+#define KI_SAFE_MODE_POLL_MS 100
+#define KI_SAFE_MODE_POLLS (KI_SAFE_MODE_TIMEOUT_MS / KI_SAFE_MODE_POLL_MS)
+
+static struct delayed_work ki_safemode_work;
+static unsigned int ki_safemode_polls;
+
+static bool ki_safemode_file_exists(void)
+{
+	struct file *file;
+
+	file = filp_open(KI_SAFE_MODE_PATH, O_RDONLY | O_CLOEXEC, 0);
+	if (IS_ERR(file))
+		return false;
+
+	filp_close(file, NULL);
+	return true;
+}
+
+static void ki_safemode_workfn(struct work_struct *work)
+{
+	(void)work;
+
+	if (ki_safemode_file_exists()) {
+		mutex_lock(&ki_state.lock);
+		ki_state.safemode = true;
+		mutex_unlock(&ki_state.lock);
+		pr_warn("KI: safe mode marker detected; safe mode enabled until shutdown\n");
+		return;
+	}
+
+	if (++ki_safemode_polls < KI_SAFE_MODE_POLLS) {
+		schedule_delayed_work(&ki_safemode_work,
+				      msecs_to_jiffies(KI_SAFE_MODE_POLL_MS));
+		return;
+	}
+
+	pr_info("KI: safe mode marker not detected within %u ms\n",
+		KI_SAFE_MODE_TIMEOUT_MS);
+}
+
+int ki_safemode_init(void)
+{
+	ki_safemode_polls = 0;
+	INIT_DELAYED_WORK(&ki_safemode_work, ki_safemode_workfn);
+	schedule_delayed_work(&ki_safemode_work, 0);
+	return 0;
+}
+
+void ki_safemode_exit(void)
+{
+	cancel_delayed_work_sync(&ki_safemode_work);
+}
 
 bool ki_is_safemode(void)
 {
@@ -15,13 +73,15 @@ bool ki_is_safemode(void)
 	return value;
 }
 
+/*
+ * Safe mode is controlled exclusively by /data/ki_userd/safemode.
+ * The ioctl setter is retained only for ABI compatibility and cannot
+ * override the persistent marker-based state.
+ */
 int ki_set_safemode(bool enable)
 {
-	mutex_lock(&ki_state.lock);
-	ki_state.safemode = enable;
-	mutex_unlock(&ki_state.lock);
-	pr_info("KI: safe mode %s\n", enable ? "enabled" : "disabled");
-	return 0;
+	(void)enable;
+	return -EOPNOTSUPP;
 }
 
 int ki_func_set(const char *kfunc, const char *key, const char *value)
