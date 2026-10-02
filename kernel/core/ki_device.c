@@ -64,44 +64,19 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_SAFE_MODE: {
-		__u32 enable;
-		if (copy_from_user(&enable, (void __user *)arg, sizeof(enable)))
-			return -EFAULT;
-		return ki_set_safemode(!!enable);
-	}
-	case KI_IOC_CONFIG_VALUE_SET: {
-		struct ki_ioc_value value;
-		int ret = ki_copy_ioc_value(&value, arg);
-		if (ret)
-			return ret;
-		return ki_config_set(value.kfunc, value.key, value.value);
-	}
-	case KI_IOC_CONFIG_VALUE_UNSET: {
-		struct ki_ioc_key key;
-		int ret = ki_copy_ioc_key(&key, arg);
-		if (ret)
-			return ret;
-		return ki_config_unset(key.kfunc, key.key);
-	}
-	case KI_IOC_CONFIG_KFUNC_DEL: {
-		struct ki_ioc_kfunc kfunc;
-		int ret = ki_copy_ioc_kfunc(&kfunc, arg);
-		if (ret)
-			return ret;
-		return ki_config_del(kfunc.kfunc);
-	}
-	case KI_IOC_CONFIG_KFUNC_RESET: {
-		struct ki_ioc_kfunc kfunc;
-		int ret = ki_copy_ioc_kfunc(&kfunc, arg);
-		if (ret)
-			return ret;
-		return ki_config_reset(kfunc.kfunc);
-	}
+	case KI_IOC_SAFE_MODE:
+		return -EOPNOTSUPP;
+	case KI_IOC_CONFIG_RELOAD:
+		return ki_config_reload();
+	case KI_IOC_CONFIG_VALUE_SET:
+		return -EOPNOTSUPP;
+	case KI_IOC_CONFIG_KFUNC_DEL:
+		return -EOPNOTSUPP;
+	case KI_IOC_CONFIG_KFUNC_RESET:
+		return -EOPNOTSUPP;
 	case KI_IOC_CONFIG_ON:
-		return ki_config_active();
 	case KI_IOC_CONFIG_OFF:
-		return ki_config_inactive();
+		return -EOPNOTSUPP;
 	case KI_IOC_FUNC_VALUE_SET: {
 		struct ki_ioc_value value;
 		int ret = ki_copy_ioc_value(&value, arg);
