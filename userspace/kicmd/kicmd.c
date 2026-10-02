@@ -132,16 +132,7 @@ static int open_ki_checked(void)
 	return fd;
 }
 
-static int require_driver(void)
-{
-	int fd = open_ki_checked();
-	if (fd < 0)
-		return 1;
-	close(fd);
-	return 0;
-}
-
-static int ioctl_config_active(bool active)
+static int cfg_set_active_and_ioctl(bool active)
 {
 	int fd;
 	int ret;
@@ -149,6 +140,14 @@ static int ioctl_config_active(bool active)
 	fd = open_ki_checked();
 	if (fd < 0)
 		return 1;
+
+	ret = cfg_set_active(active);
+	if (ret) {
+		fprintf(stderr, "%s: save config: %s\n",
+			KICMD_NAME, strerror(-ret));
+		close(fd);
+		return 1;
+	}
 
 	ret = ki_ioctl(fd, active ? KI_IOC_CONFIG_ON : KI_IOC_CONFIG_OFF, NULL);
 	if (ret < 0) {
@@ -576,12 +575,7 @@ static int cmd_config(int argc, char **argv)
 
 	if (!strcmp(argv[1], KICMD_SUB_ACTIVE) || !strcmp(argv[1], KICMD_SUB_INACTIVE)) {
 		bool active = !strcmp(argv[1], KICMD_SUB_ACTIVE);
-		if (require_driver())
-			return 1;
-		ret = cfg_set_active(active);
-		if (ret)
-			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-		ret = ioctl_config_active(active);
+		ret = cfg_set_active_and_ioctl(active);
 		if (ret)
 			return ret;
 		debug_log("config %s", argv[1]);
