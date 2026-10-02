@@ -141,6 +141,27 @@ static int require_driver(void)
 	return 0;
 }
 
+static int ioctl_config_active(bool active)
+{
+	int fd;
+	int ret;
+
+	fd = open_ki_checked();
+	if (fd < 0)
+		return 1;
+
+	ret = ki_ioctl(fd, active ? KI_IOC_CONFIG_ON : KI_IOC_CONFIG_OFF, NULL);
+	if (ret < 0) {
+		fprintf(stderr, "%s: config %s: %s\n",
+			KICMD_NAME, active ? "active" : "inactive", strerror(errno));
+		close(fd);
+		return 1;
+	}
+
+	close(fd);
+	return 0;
+}
+
 static int ki_ioctl(int fd, unsigned long request, void *arg)
 {
 	int ret;
@@ -503,9 +524,8 @@ static int cmd_config(int argc, char **argv)
 		ret = cfg_set(kfunc, key, value);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-		ret = ioctl_reload_config();
 		debug_log("config set %s.%s=%s", kfunc, key, value);
-		return ret;
+		return 0;
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_UNSET)) {
@@ -517,9 +537,8 @@ static int cmd_config(int argc, char **argv)
 		ret = cfg_unset(kfunc, key);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
-		ret = ioctl_reload_config();
 		debug_log("config unset %s.%s", kfunc, key);
-		return ret;
+		return 0;
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_DEL)) {
@@ -540,7 +559,7 @@ static int cmd_config(int argc, char **argv)
 			return fprintf(stderr, "%s: usage: config reset [<kfunc>]\n", KICMD_NAME), 1;
 		if (argc == 3) {
 			kfunc = argv[2];
-			if (check_kfunc(kfunc) || require_driver())
+			if (check_kfunc(kfunc))
 				return 1;
 			ret = cfg_reset_kfunc(kfunc);
 			if (ret)
@@ -562,6 +581,9 @@ static int cmd_config(int argc, char **argv)
 		ret = cfg_set_active(active);
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+		ret = ioctl_config_active(active);
+		if (ret)
+			return ret;
 		debug_log("config %s", argv[1]);
 		return 0;
 	}
