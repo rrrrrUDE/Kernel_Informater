@@ -28,18 +28,18 @@ static int ensure_userd_dir(void)
 {
 	struct stat st;
 
-	if (!stat(KI_USERD_DIR, &st)) {
+	if (!stat(KI_USER_DIR, &st)) {
 		if (!S_ISDIR(st.st_mode)) {
 			fprintf(stderr, "%s: %s is not a directory\n",
-				KICMD_NAME, KI_USERD_DIR);
+				KICMD_NAME, KI_USER_DIR);
 			return -ENOTDIR;
 		}
 		return 0;
 	}
 
-	if (mkdir(KI_USERD_DIR, 0700) && errno != EEXIST) {
+	if (mkdir(KI_USER_DIR, 0700) && errno != EEXIST) {
 		fprintf(stderr, "%s: mkdir %s: %s\n",
-			KICMD_NAME, KI_USERD_DIR, strerror(errno));
+			KICMD_NAME, KI_USER_DIR, strerror(errno));
 		return -errno;
 	}
 
@@ -57,7 +57,7 @@ static void debug_log(const char *fmt, ...)
 	if (ensure_userd_dir())
 		return;
 
-	fp = fopen(KI_USERD_DEBUG_LOG, "a");
+	fp = fopen(KI_USER_DEBUG_LOG, "a");
 	if (!fp)
 		return;
 
@@ -215,7 +215,7 @@ static int write_config_with_transform(const char *replace_key,
 	if (ret)
 		return ret;
 
-	in = fopen(KI_USERD_CONFIG, "r");
+	in = fopen(KI_USER_CONFIG, "r");
 	if (!in && errno != ENOENT)
 		return -errno;
 
@@ -282,13 +282,13 @@ static int write_config_with_transform(const char *replace_key,
 		return -EIO;
 	}
 
-	if (rename(tmp_path, KI_USERD_CONFIG)) {
+	if (rename(tmp_path, KI_USER_CONFIG)) {
 		ret = -errno;
 		unlink(tmp_path);
 		return ret;
 	}
 
-	chmod(KI_USERD_CONFIG, 0600);
+	chmod(KI_USER_CONFIG, 0600);
 	return 0;
 }
 
@@ -341,14 +341,14 @@ static void cfg_list(const char *kfunc)
 	char line[KICMD_CONFIG_LINE_MAX];
 	char prefix[KI_UAPI_KFUNC_MAX + 2];
 
-	fp = fopen(KI_USERD_CONFIG, "r");
+	fp = fopen(KI_USER_CONFIG, "r");
 	if (!fp) {
 		if (errno == ENOENT) {
 			printf("(no persistent configuration)\n");
 			return;
 		}
 		fprintf(stderr, "%s: read %s: %s\n",
-			KICMD_NAME, KI_USERD_CONFIG, strerror(errno));
+			KICMD_NAME, KI_USER_CONFIG, strerror(errno));
 		return;
 	}
 
@@ -456,10 +456,10 @@ static int cmd_safemode(int argc, char **argv)
 		return 1;
 
 	if (!strcmp(argv[1], KICMD_SUB_ENABLE)) {
-		int fd = open(KI_USERD_SAFE_MODE, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
+		int fd = open(KI_USER_SAFE_MODE, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
 		if (fd < 0) {
 			fprintf(stderr, "%s: create %s: %s\n",
-				KICMD_NAME, KI_USERD_SAFE_MODE, strerror(errno));
+				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
 			return 1;
 		}
 		close(fd);
@@ -468,9 +468,9 @@ static int cmd_safemode(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_DISABLE)) {
-		if (unlink(KI_USERD_SAFE_MODE) && errno != ENOENT) {
+		if (unlink(KI_USER_SAFE_MODE) && errno != ENOENT) {
 			fprintf(stderr, "%s: remove %s: %s\n",
-				KICMD_NAME, KI_USERD_SAFE_MODE, strerror(errno));
+				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
 			return 1;
 		}
 		debug_log("safemode disable");
