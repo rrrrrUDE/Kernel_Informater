@@ -557,7 +557,7 @@ static int cmd_config(int argc, char **argv)
 		if (ret)
 			return ret;
 		{
-			int fd = open_ki();
+			int fd = open_ki_checked();
 			if (fd < 0)
 				return 1;
 			ret = ki_ioctl(fd, KI_IOC_CONFIG_OFF, NULL);
@@ -576,7 +576,7 @@ static int cmd_config(int argc, char **argv)
 		if (ret)
 			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
 		{
-			int fd = open_ki();
+			int fd = open_ki_checked();
 			if (fd < 0)
 				return 1;
 			ret = ki_ioctl(fd, active ? KI_IOC_CONFIG_ON : KI_IOC_CONFIG_OFF, NULL);
