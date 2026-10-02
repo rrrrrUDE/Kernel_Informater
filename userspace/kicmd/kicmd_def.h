@@ -8,14 +8,14 @@
 #define KICMD_NAME "kicmd"
 #define KICMD_VERSION KI_VERSION_STRING
 
-/* All KI userspace state intentionally lives below /data/adb/. */
-#define KI_USERD_DIR           "/data/adb/ki_userd"
-#define KI_USERD_CONFIG        KI_USERD_DIR "/config"
-#define KI_USERD_DEBUG_SWITCH  KI_USERD_DIR "/debug"
-#define KI_USERD_DEBUG_LOG     KI_USERD_DIR "/debug.log"
+/* All KI userspace state intentionally lives below /data/. */
+#define KICMD_USERD_DIR        KI_USERD_DIR
+#define KI_USERD_CONFIG        KI_USERD_CONFIG_PATH
+#define KI_USERD_SAFE_MODE     KI_USERD_SAFE_MODE_PATH
+#define KI_USERD_DEBUG_LOG     KI_USERD_DEBUG_LOG_PATH
 
 #define KICMD_CONFIG_LINE_MAX  512
-#define KICMD_CONFIG_TMP       KI_USERD_DIR "/.config.tmp.XXXXXX"
+#define KICMD_CONFIG_TMP       KICMD_USERD_DIR "/.config.tmp.XXXXXX"
 
 #define KICMD_CMD_SAFEMODE "safemode"
 #define KICMD_CMD_CONFIG   "config"
