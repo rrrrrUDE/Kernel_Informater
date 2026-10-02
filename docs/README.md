@@ -48,5 +48,6 @@ kicmd、配置和Debug日志会统一放在：
 
 ## 特别感谢
  * [KernelSU](https://github.com/tiann/KernelSU): 提供部分思路与参考。
+ * [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): 钩子判断与setup.sh参考。
 
 KI 是一个独立项目，具体架构与实现会根据自身需求单独开发。感谢 Android 内核开源社区提供的大量工程实践与开源参考。
