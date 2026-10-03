@@ -4,6 +4,9 @@
 #include <linux/fs.h>
 #include <linux/namei.h>
 #include <linux/cred.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
+#include <linux/statfs.h>
+#endif
 #include <linux/kernel.h>
 #include <linux/limits.h>
 #include <linux/slab.h>
