@@ -16,6 +16,73 @@
 
 static int ki_ioctl(int fd, unsigned long request, void *arg);
 static int open_ki_checked(void);
+static int list_kernel_lines(int fd, unsigned int type)
+{
+	struct ki_ioc_list_line line;
+	unsigned int index = 0;
+	int ret;
+
+	for (;;) {
+		memset(&line, 0, sizeof(line));
+		line.type = type;
+		line.index = index;
+		if (ki_ioctl(fd, KI_IOC_LIST_LINE, &line) < 0) {
+			if (errno == ENOENT)
+				return 0;
+			return -errno;
+		}
+		puts(line.line);
+		index++;
+	}
+}
+
+static int module_func(int argc, char **argv)
+{
+	char value[KI_UAPI_VALUE_MAX];
+	size_t used = 0;
+	int i;
+
+	if (argc < 2)
+		return -EINVAL;
+	if (!strcmp(argv[1], "rmmod")) {
+		if (argc != 3)
+			return -EINVAL;
+		return ioctl_value(KI_IOC_FUNC_VALUE_SET, "module", "rmmod", argv[2]);
+	}
+	if (strcmp(argv[1], "insmod") || argc < 3)
+		return -EINVAL;
+	memset(value, 0, sizeof(value));
+	for (i = 2; i < argc; i++) {
+		size_t n = strlen(argv[i]);
+		if (n + used + (used ? 1 : 0) >= sizeof(value))
+			return -E2BIG;
+		if (used)
+			value[used++] = ' ';
+		memcpy(value + used, argv[i], n);
+		used += n;
+	}
+	return ioctl_value(KI_IOC_FUNC_VALUE_SET, "module", "insmod", value);
+}
+
+static int mount_func(int argc, char **argv)
+{
+	char value[KI_UAPI_VALUE_MAX];
+
+	if (argc < 2)
+		return -EINVAL;
+	if (!strcmp(argv[1], "umount") || !strcmp(argv[1], "hot_unmount")) {
+		if (argc != 3)
+			return -EINVAL;
+		return ioctl_value(KI_IOC_FUNC_VALUE_SET, "mount", argv[1], argv[2]);
+	}
+	if (!strcmp(argv[1], "add") && argc == 4) {
+		if (snprintf(value, sizeof(value), "%s\t%s", argv[2], argv[3]) >= (int)sizeof(value))
+			return -E2BIG;
+		return ioctl_value(KI_IOC_FUNC_VALUE_SET, "mount", "add", value);
+	}
+	return -EINVAL;
+}
+
 static int cmd_list_process(int fd, int argc, char **argv);
 static int cmd_func_process(int argc, char **argv);
 static int check_kfunc_feature(int fd, const char *kfunc, unsigned int feature)
@@ -632,6 +699,11 @@ static int cmd_config(int argc, char **argv)
 	}
 
 
+	if (!strcmp(argv[1], "module"))
+		return module_func(argc - 1, argv + 1);
+	if (!strcmp(argv[1], "mount"))
+		return mount_func(argc - 1, argv + 1);
+
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
 		if (argc != 5)
 			return fprintf(stderr, "%s: usage: config set <kfunc> <key> <value>\n", KICMD_NAME), 1;
@@ -823,6 +895,14 @@ static int cmd_list(int argc, char **argv)
 		debug_log("list process%s%s",
 			argc == 3 ? " " : "", argc == 3 ? argv[2] : "");
 		return 0;
+	}
+	if (argc == 2 && (!strcmp(argv[1], "module") || !strcmp(argv[1], "mount"))) {
+		fd = open_ki_checked();
+		if (fd < 0)
+			return 1;
+		ret = list_kernel_lines(fd, !strcmp(argv[1], "module") ? KI_LIST_MODULE : KI_LIST_MOUNT);
+		close(fd);
+		return ret ? 1 : 0;
 	}
 	if (argc > 2) {
 		fputs(kicmd_help_list, stdout);

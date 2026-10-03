@@ -49,7 +49,7 @@ int ki_process_hook_init(void)
 	ret = register_trace_android_vh_free_task(
 		ki_process_gki_free_task, NULL);
 	if (ret)
-		goto err_comm;
+		goto err_dup;
 
 	ki_process_hooks_registered = true;
 

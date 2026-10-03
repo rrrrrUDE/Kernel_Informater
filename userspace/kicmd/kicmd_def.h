@@ -89,7 +89,7 @@ static const char kicmd_help_list[] =
 	"\n"
 	"Process:\n"
 	"  list process             List visible processes\n"
-	"  list process <pid>       Show process information\n"
+	"  list process <pid>       Show process information\n  list module              List loaded kernel modules\n  list mount               List current mount entries\n"
 	"\n"
 	"Options:\n"
 	"  -h, --help   Print help\n";
@@ -104,7 +104,7 @@ static const char kicmd_help_func[] =
 	"  process info <pid>           Show process information\n"
 	"  process read_memory <pid> <address> <size>  Read process memory\n"
 	"  process kill <pid>           Kill one process\n"
-	"  process kill_tree <pid>      Kill a process and its descendants\n"
+	"  process kill_tree <pid>      Kill a process and its descendants\n  module insmod <path> [args...]  Load a kernel module\n  module rmmod <name>           Remove a kernel module\n  mount add <source> <target>    Add a bind mount\n  mount umount <target>          Unmount a mount point\n  mount hot_unmount <target>     Lazy-unmount a mount point\n"
 	"  help                         Print help\n"
 	"\n"
 	"Options:\n"
