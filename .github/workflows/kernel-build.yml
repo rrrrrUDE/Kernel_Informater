@@ -41,7 +41,12 @@ jobs:
           scripts/config --disable CONFIG_KGDB
           make ARCH=arm64 olddefconfig
 
-      - name: Compile Kernel Informater
+      - name: Prepare module build tools
+        working-directory: kernel-tree
+        run: |
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 scripts
+
+      - name: Compile Kernel Informater LKM
         working-directory: kernel-tree
         run: |
           make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
