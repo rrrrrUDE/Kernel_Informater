@@ -1,4 +1,4 @@
-name: Build Kernel · Android 12 5.4 GKI 1.0 · Manual Hook
+name: Test Build GKI 5.4 Manual Hook
 
 on:
   workflow_dispatch:
@@ -75,8 +75,3 @@ jobs:
           test -f kernel/Kernel_Informater/ki.ko
           file kernel/Kernel_Informater/ki.ko
 
-      - name: Upload LKM
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-5-4-gki-1-0-manual-hook
-          path: kernel-tree/kernel/Kernel_Informater/ki.ko
