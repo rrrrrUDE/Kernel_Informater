@@ -61,7 +61,7 @@ jobs:
         run: |
           make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
             CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
-            HOSTCFLAGS=-fcommon LLVM_IAS=1 modules_prepare
+            HOSTCFLAGS=-fcommon LLVM_IAS=1 vmlinux
 
       - name: Build Kernel Informater LKM
         working-directory: kernel-tree
