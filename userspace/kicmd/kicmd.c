@@ -96,6 +96,8 @@ static int module_func(int argc, char **argv)
 	return 0;
 }
 
+static int open_ki_checked(void);
+
 static int filesystem_func(int argc, char **argv)
 {
 	char value[KI_UAPI_VALUE_MAX];
