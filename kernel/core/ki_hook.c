@@ -192,6 +192,8 @@ static void ki_tracepoint_hook_exit(void)
 
 #endif /* CONFIG_TRACEPOINTS && CONFIG_HAVE_SYSCALL_TRACEPOINTS */
 
+#endif /* CONFIG_KI_TRACEPOINT_HOOK */
+
 int ki_hook_init(void)
 {
 	int ret;
