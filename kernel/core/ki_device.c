@@ -11,7 +11,7 @@
 #include "ki_kfunc.h"
 #include "ki_process.h"
 #include "ki_module.h"
-#include "ki_mount.h"
+#include "ki_filesystem.h"
 
 static int ki_copy_ioc_value(struct ki_ioc_value *dst, unsigned long arg)
 {
@@ -243,8 +243,8 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		if (line.type == KI_LIST_MODULE)
 			ret = ki_module_list_line(line.index, line.line, sizeof(line.line));
-		else if (line.type == KI_LIST_MOUNT)
-			ret = ki_mount_list_line(line.index, line.line, sizeof(line.line));
+		else if (line.type == KI_LIST_FILESYSTEM)
+			ret = ki_filesystem_list_line(line.index, line.line, sizeof(line.line));
 		else
 			return -EINVAL;
 		if (ret)
