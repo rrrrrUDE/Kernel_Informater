@@ -29,8 +29,7 @@ config KI_TRACEPOINT_HOOK
 	depends on ANDROID
 	depends on TRACEPOINTS
 	depends on HAVE_SYSCALL_TRACEPOINTS
-	depends on ANDROID_VENDOR_HOOKS
-	help
+		help
 	  Enable the Tracepoint Syscall Redirect hook for Android GKI 2.0 kernels.
 
 	  This automatic backend is intended for Android GKI 2.0+ (5.10+) and
