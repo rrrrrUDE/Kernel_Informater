@@ -100,52 +100,32 @@ static int open_ki_checked(void);
 
 static int filesystem_func(int argc, char **argv)
 {
-	char value[KI_UAPI_VALUE_MAX];
 	int fd;
 	struct ki_ioc_real real;
 
-	if (argc < 2)
+	if (argc != 2 || strcmp(argv[1], "stat"))
 		return -EINVAL;
 
-	if (!strcmp(argv[1], "stat")) {
-		if (argc != 3 || strlen(argv[2]) + 5 >= KI_UAPI_KEY_MAX)
-			return -EINVAL;
+	if (strlen(argv[2]) + 5 >= KI_UAPI_KEY_MAX)
+		return -EINVAL;
 
-		fd = open_ki_checked();
-		if (fd < 0)
-			return -ENODEV;
+	fd = open_ki_checked();
+	if (fd < 0)
+		return -ENODEV;
 
-		memset(&real, 0, sizeof(real));
-		strncpy(real.kfunc, "filesystem", sizeof(real.kfunc) - 1);
-		snprintf(real.key, sizeof(real.key), "stat:%s", argv[2]);
+	memset(&real, 0, sizeof(real));
+	strncpy(real.kfunc, "filesystem", sizeof(real.kfunc) - 1);
+	snprintf(real.key, sizeof(real.key), "stat:%s", argv[2]);
 
-		if (ki_ioctl(fd, KI_IOC_GET_REAL_INFO, &real) < 0) {
-			int saved_errno = errno;
-			close(fd);
-			return -saved_errno;
-		}
-
+	if (ki_ioctl(fd, KI_IOC_GET_REAL_INFO, &real) < 0) {
+		int saved_errno = errno;
 		close(fd);
-		printf("%s.%s=%s\n", real.kfunc, real.key, real.value);
-		return 0;
+		return -saved_errno;
 	}
 
-	if (!strcmp(argv[1], "umount") || !strcmp(argv[1], "hot_unmount")) {
-		if (argc != 3)
-			return -EINVAL;
-		return ioctl_value(KI_IOC_FUNC_VALUE_SET, "filesystem",
-				   argv[1], argv[2]);
-	}
-
-	if (!strcmp(argv[1], "add") && argc == 4) {
-		if (snprintf(value, sizeof(value), "%s\t%s",
-			     argv[2], argv[3]) >= (int)sizeof(value))
-			return -E2BIG;
-		return ioctl_value(KI_IOC_FUNC_VALUE_SET, "filesystem",
-				   "add", value);
-	}
-
-	return -EINVAL;
+	close(fd);
+	printf("%s.%s=%s\n", real.kfunc, real.key, real.value);
+	return 0;
 }
 
 static int cmd_list_process(int fd, int argc, char **argv);
