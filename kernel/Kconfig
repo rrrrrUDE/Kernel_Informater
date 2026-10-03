@@ -25,19 +25,10 @@ config KI_BOOTAPPLY
 config KI_TRACEPOINT_HOOK
 	bool "Tracepoint Syscall Redirect as GKI Hook"
 	default n # KI_TRACEPOINT_HOOK_DEFAULT
-	depends on ARM64
-	depends on ANDROID
-	depends on TRACEPOINTS
-	depends on HAVE_SYSCALL_TRACEPOINTS
 		help
-	  Enable the Tracepoint Syscall Redirect hook for Android GKI 2.0 kernels.
-
-	  This automatic backend is intended for Android GKI 2.0+ (5.10+) and
-	  uses the kernel syscall tracepoint interface together with Android
-	  vendor trace hooks. It has no probe-based fallback path.
-
-	  Android GKI 1.0, non-GKI kernels, and kernels at 5.4 or older must
-	  keep this option disabled and use integrate.sh for source-level
-	  manual hooks.
+          The standard, upstream method for modern kernels.
+          Utilizes GKI tracepoints for syscall redirection.
+          The implementation is only for devices with GKI2 support.
+          Support for kernel 5.10+
 
 endif
