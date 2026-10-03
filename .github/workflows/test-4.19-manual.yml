@@ -44,8 +44,8 @@ jobs:
         working-directory: kernel-tree
         run: |
           make ARCH=arm64 defconfig
-          scripts/config --set-val CONFIG_KI m
           scripts/config --enable CONFIG_MODULES
+          scripts/config --set-val CONFIG_KI m
           scripts/config --disable CONFIG_KGDB
           scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
           make ARCH=arm64 olddefconfig
