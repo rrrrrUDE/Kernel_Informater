@@ -1,4 +1,5 @@
 # Kernel Informater build/test configuration
+# CI validates the module against legacy and GKI kernel trees.
 menuconfig KI
 	tristate "Kernel Informater"
 	default n
