@@ -29,7 +29,7 @@ jobs:
           mkdir -p kernel-tree/kernel/Kernel_Informater
           cp -a kernel/. kernel-tree/kernel/Kernel_Informater/
           printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' >> kernel-tree/kernel/Kconfig
-          printf '\nobj-$(CONFIG_KI) += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
+          printf '\nobj-y += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
           sh kernel-tree/kernel/Kernel_Informater/integrate.sh kernel-tree
 
       - name: Configure
