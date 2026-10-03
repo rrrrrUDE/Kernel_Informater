@@ -4,7 +4,7 @@
 
 A Kernel Management Tool for Android.
 
-Kernel Informater（KI）是一个面向 Android 的内核管理工具，通过在内核里部署钩子来管理内核信息。
+Kernel Informater（KI）是一个面向 Android 的内核管理工具，通过在内核里部署钩子来管理内核。
 
 ## 内核集成
 
