@@ -14,7 +14,7 @@ curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh
 Enable Tracepoint Syscall Redirect hook? [y/N]:
 ```
 
-输入 `y` 时，Setup 会直接读取目标内核根目录 `Makefile` 中的 `VERSION` 和 `PATCHLEVEL`。只有版本为 5.10 或更高时才部署 Tracepoint Syscall Redirect Hook；低于 5.10 会直接报错并要求使用 Manual Hook。输入 `n` 或者其他（包括直接回车）会选择手动源码集成（执行 `kernel/integrate.sh`）。
+输入 `y` 时，Setup 会直接读取目标内核根目录 `Makefile` 中的 `VERSION` 和 `PATCHLEVEL`。只有版本为 5.10 或更高时才部署 Tracepoint Syscall Redirect Hook；低于 5.10 会直接报错并要求使用手动钩子。输入 `n` 或者其他（包括直接回车）会选择手动集成方式。
 
 也可以这样子：
 
