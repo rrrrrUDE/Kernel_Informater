@@ -15,7 +15,7 @@ jobs:
 
       - name: Checkout Android common 5.10
         run: |
-          git clone --depth 1 --branch android-5.10 \
+          git clone --depth 1 --branch android12-5.10 \
             https://android.googlesource.com/kernel/common kernel-tree
 
       - name: Install build dependencies
