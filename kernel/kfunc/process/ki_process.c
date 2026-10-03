@@ -10,6 +10,9 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
 #include <linux/sched/signal.h>
 #endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+#include <linux/sched/mm.h>
+#endif
 #include <linux/signal.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -117,7 +120,7 @@ static void ki_process_clear(void)
 	spin_unlock_irqrestore(&ki_process_lock, flags);
 }
 
-#ifdef CONFIG_KI_TRACEPOINT_HOOK
+#if defined(CONFIG_KI_TRACEPOINT_HOOK) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
 
 static bool ki_process_hooks_registered;
 
@@ -288,10 +291,14 @@ int ki_process_info(struct ki_ioc_process_info *info)
 	info->tgid = task_tgid_vnr(task);
 	info->uid = from_kuid_munged(current_user_ns(), task_uid(task));
 	info->gid = from_kgid_munged(current_user_ns(), __task_cred(task)->gid);
-	info->state = task_state_to_char(task);
+	info->state = (unsigned int)task->state;
 	info->flags = task->flags;
 	info->start_time = task->start_time;
-	get_task_comm(info->comm, task);
+	{
+		char comm[TASK_COMM_LEN];
+		get_task_comm(comm, task);
+		strscpy(info->comm, comm, sizeof(info->comm));
+	}
 
 	mm = get_task_mm(task);
 	if (mm) {
