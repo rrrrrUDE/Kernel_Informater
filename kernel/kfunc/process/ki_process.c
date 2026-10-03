@@ -6,7 +6,10 @@
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/sched.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
 #include <linux/sched/signal.h>
+#endif
 #include <linux/signal.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -15,66 +18,154 @@
 #include <linux/uaccess.h>
 
 #include "ki_process.h"
+#include "ki.h"
+
+#define KI_PROCESS_HASH_BITS 6
+
+struct ki_process_record {
+	struct hlist_node node;
+	pid_t pid;
+	pid_t ppid;
+	kuid_t uid;
+	unsigned long state;
+	char comm[TASK_COMM_LEN];
+};
+
+static DEFINE_HASHTABLE(ki_process_table, KI_PROCESS_HASH_BITS);
+static DEFINE_SPINLOCK(ki_process_lock);
+static atomic_t ki_process_count = ATOMIC_INIT(0);
+
+static struct ki_process_record *ki_process_find_locked(pid_t pid)
+{
+	struct ki_process_record *record;
+
+	hash_for_each_possible(ki_process_table, record, node, (unsigned long)pid) {
+		if (record->pid == pid)
+			return record;
+	}
+	return NULL;
+}
+
+static void ki_process_update_record(struct ki_process_record *record,
+					struct task_struct *task)
+{
+	if (!record || !task)
+		return;
+	record->ppid = task_ppid_nr(task);
+	record->uid = task_uid(task);
+	record->state = task->state;
+	get_task_comm(record->comm, task);
+}
+
+static void ki_process_add(struct task_struct *task)
+{
+	struct ki_process_record *record;
+	unsigned long flags;
+	pid_t pid;
+
+	if (!task)
+		return;
+	pid = task_pid_vnr(task);
+	if (pid <= 0)
+		return;
+
+	record = kzalloc(sizeof(*record), GFP_ATOMIC);
+	if (!record)
+		return;
+	record->pid = pid;
+	ki_process_update_record(record, task);
+
+	spin_lock_irqsave(&ki_process_lock, flags);
+	if (ki_process_find_locked(pid)) {
+		spin_unlock_irqrestore(&ki_process_lock, flags);
+		kfree(record);
+		return;
+	}
+	hash_add(ki_process_table, &record->node, (unsigned long)pid);
+	atomic_inc(&ki_process_count);
+	spin_unlock_irqrestore(&ki_process_lock, flags);
+}
+
+static void ki_process_remove(pid_t pid)
+{
+	struct ki_process_record *record;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ki_process_lock, flags);
+	record = ki_process_find_locked(pid);
+	if (record) {
+		hash_del(&record->node);
+		atomic_dec(&ki_process_count);
+	}
+	spin_unlock_irqrestore(&ki_process_lock, flags);
+	kfree(record);
+}
+
+static void ki_process_clear(void)
+{
+	struct ki_process_record *record;
+	struct hlist_node *tmp;
+	unsigned long flags;
+	int bkt;
+
+	spin_lock_irqsave(&ki_process_lock, flags);
+	hash_for_each_safe(ki_process_table, bkt, tmp, record, node) {
+		hash_del(&record->node);
+		kfree(record);
+	}
+	atomic_set(&ki_process_count, 0);
+	spin_unlock_irqrestore(&ki_process_lock, flags);
+}
 
 #ifdef CONFIG_KI_TRACEPOINT_HOOK
-#include <trace/hooks/sched.h>
 
 static bool ki_process_hooks_registered;
 
-static void ki_process_gki_dup_task(void *unused,
-				    struct task_struct *tsk,
-				    struct task_struct *orig)
+static void ki_process_sched_fork(void *unused, struct task_struct *parent,
+				  struct task_struct *child)
 {
 	(void)unused;
-	(void)orig;
-	ki_process_add(tsk);
+	(void)parent;
+	ki_process_add(child);
 }
 
-static void ki_process_gki_free_task(void *unused, struct task_struct *task)
+static void ki_process_sched_exit(void *unused, struct task_struct *task)
 {
 	(void)unused;
-	ki_process_remove(task_pid_nr(task));
+	ki_process_remove(task_pid_vnr(task));
 }
 
 int ki_process_hook_init(void)
 {
-	struct task_struct *task;
 	int ret;
 
-	ret = register_trace_android_vh_dup_task_struct(
-		ki_process_gki_dup_task, NULL);
+	ret = register_trace_sched_process_fork(ki_process_sched_fork, NULL);
 	if (ret)
 		return ret;
 
-	ret = register_trace_android_vh_free_task(
-		ki_process_gki_free_task, NULL);
-	if (ret)
-		goto err_dup;
+	ret = register_trace_sched_process_exit(ki_process_sched_exit, NULL);
+	if (ret) {
+		unregister_trace_sched_process_fork(ki_process_sched_fork, NULL);
+		tracepoint_synchronize_unregister();
+		return ret;
+	}
 
 	ki_process_hooks_registered = true;
-
-	read_lock(&tasklist_lock);
-	for_each_process(task)
-		ki_process_add(task);
-	read_unlock(&tasklist_lock);
-
-	pr_info("KI: GKI process vendor hooks enabled\n");
+	{
+		struct task_struct *task;
+		read_lock(&tasklist_lock);
+		for_each_process(task)
+			ki_process_add(task);
+		read_unlock(&tasklist_lock);
+	}
 	return 0;
-
-err_dup:
-	unregister_trace_android_vh_dup_task_struct(
-		ki_process_gki_dup_task, NULL);
-	tracepoint_synchronize_unregister();
-	return ret;
 }
 
 void ki_process_hook_exit(void)
 {
 	if (ki_process_hooks_registered) {
-		unregister_trace_android_vh_free_task(
-			ki_process_gki_free_task, NULL);
-		unregister_trace_android_vh_dup_task_struct(
-			ki_process_gki_dup_task, NULL);
+		unregister_trace_sched_process_exit(ki_process_sched_exit, NULL);
+		unregister_trace_sched_process_fork(ki_process_sched_fork, NULL);
 		tracepoint_synchronize_unregister();
 		ki_process_hooks_registered = false;
 	}
@@ -91,8 +182,6 @@ int ki_process_hook_init(void)
 	for_each_process(task)
 		ki_process_add(task);
 	read_unlock(&tasklist_lock);
-
-	pr_info("KI: manual process hook mode selected\n");
 	return 0;
 }
 
