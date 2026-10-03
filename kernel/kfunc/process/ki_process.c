@@ -262,7 +262,9 @@ int ki_process_list(struct ki_ioc_process_entry *entry)
 			entry->ppid = record->ppid;
 			entry->uid = from_kuid_munged(current_user_ns(), record->uid);
 			entry->state = record->state;
-			strscpy(entry->comm, record->comm, sizeof(entry->comm));
+			memset(entry->comm, 0, sizeof(entry->comm));
+			memcpy(entry->comm, record->comm,
+			       min_t(size_t, sizeof(record->comm), sizeof(entry->comm) - 1));
 			ret = 0;
 			break;
 		}
