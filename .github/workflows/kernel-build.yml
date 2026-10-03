@@ -14,12 +14,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Checkout Android common 4.19
-        uses: actions/checkout@v4
-        with:
-          repository: android/kernel_common
-          ref: android-4.19-stable
-          path: kernel-tree
-          fetch-depth: 1
+        run: |
+          git clone --depth 1 --branch android-4.19-stable \
+            https://android.googlesource.com/kernel/common kernel-tree
 
       - name: Install build dependencies
         run: |
