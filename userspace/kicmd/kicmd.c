@@ -96,23 +96,36 @@ static int module_func(int argc, char **argv)
 	return 0;
 }
 
-static int mount_func(int argc, char **argv)
-{
-	char value[KI_UAPI_VALUE_MAX];
+static int open_ki_checked(void);
 
-	if (argc < 2)
+static int filesystem_func(int argc, char **argv)
+{
+	int fd;
+	struct ki_ioc_real real;
+
+	if (argc != 3 || strcmp(argv[1], "stat"))
 		return -EINVAL;
-	if (!strcmp(argv[1], "umount") || !strcmp(argv[1], "hot_unmount")) {
-		if (argc != 3)
-			return -EINVAL;
-		return ioctl_value(KI_IOC_FUNC_VALUE_SET, "mount", argv[1], argv[2]);
+
+	if (strlen(argv[2]) + 5 >= KI_UAPI_KEY_MAX)
+		return -EINVAL;
+
+	fd = open_ki_checked();
+	if (fd < 0)
+		return -ENODEV;
+
+	memset(&real, 0, sizeof(real));
+	strncpy(real.kfunc, "filesystem", sizeof(real.kfunc) - 1);
+	snprintf(real.key, sizeof(real.key), "stat:%s", argv[2]);
+
+	if (ki_ioctl(fd, KI_IOC_GET_REAL_INFO, &real) < 0) {
+		int saved_errno = errno;
+		close(fd);
+		return -saved_errno;
 	}
-	if (!strcmp(argv[1], "add") && argc == 4) {
-		if (snprintf(value, sizeof(value), "%s\t%s", argv[2], argv[3]) >= (int)sizeof(value))
-			return -E2BIG;
-		return ioctl_value(KI_IOC_FUNC_VALUE_SET, "mount", "add", value);
-	}
-	return -EINVAL;
+
+	close(fd);
+	printf("%s.%s=%s\n", real.kfunc, real.key, real.value);
+	return 0;
 }
 
 static int cmd_list_process(int fd, int argc, char **argv);
@@ -942,11 +955,11 @@ static int cmd_list(int argc, char **argv)
 			argc == 3 ? " " : "", argc == 3 ? argv[2] : "");
 		return 0;
 	}
-	if (argc == 2 && (!strcmp(argv[1], "module") || !strcmp(argv[1], "mount"))) {
+	if (argc == 2 && (!strcmp(argv[1], "module") || !strcmp(argv[1], "filesystem"))) {
 		fd = open_ki_checked();
 		if (fd < 0)
 			return 1;
-		ret = list_kernel_lines(fd, !strcmp(argv[1], "module") ? KI_LIST_MODULE : KI_LIST_MOUNT);
+		ret = list_kernel_lines(fd, !strcmp(argv[1], "module") ? KI_LIST_MODULE : KI_LIST_FILESYSTEM);
 		close(fd);
 		return ret ? 1 : 0;
 	}
@@ -1213,8 +1226,8 @@ static int cmd_func(int argc, char **argv)
 		return cmd_func_process(argc - 1, argv + 1);
 	if (!strcmp(argv[1], "module"))
 		return module_func(argc - 1, argv + 1);
-	if (!strcmp(argv[1], "mount"))
-		return mount_func(argc - 1, argv + 1);
+	if (!strcmp(argv[1], "filesystem"))
+		return filesystem_func(argc - 1, argv + 1);
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
 		if (argc != 5)

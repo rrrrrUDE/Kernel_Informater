@@ -4,6 +4,28 @@
 
 #include <linux/mutex.h>
 #include <linux/types.h>
+#include <linux/version.h>
+#include <linux/string.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0)
+static inline ssize_t ki_compat_strscpy(char *dst, const char *src, size_t size)
+{
+	size_t len;
+
+	if (!size)
+		return -E2BIG;
+	len = strlen(src);
+	if (len >= size) {
+		memcpy(dst, src, size - 1);
+		dst[size - 1] = '\0';
+		return -E2BIG;
+	}
+	memcpy(dst, src, len + 1);
+	return (ssize_t)len;
+}
+#define strscpy ki_compat_strscpy
+#endif
+
 
 #include "ki_uapi.h"
 

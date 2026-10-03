@@ -7,11 +7,11 @@
 #include "ki_kfunc.h"
 #include "ki_process.h"
 #include "ki_module.h"
-#include "ki_mount.h"
+#include "ki_filesystem.h"
 
 extern struct ki_kfunc ki_uname_kfunc;
 extern struct ki_kfunc ki_module_kfunc;
-extern struct ki_kfunc ki_mount_kfunc;
+extern struct ki_kfunc ki_filesystem_kfunc;
 
 bool ki_debug = IS_ENABLED(CONFIG_KI_DEBUG);
 
@@ -47,9 +47,9 @@ static int __init ki_core_init(void)
 		return ret;
 	}
 
-	ret = ki_kfunc_register(&ki_mount_kfunc);
+	ret = ki_kfunc_register(&ki_filesystem_kfunc);
 	if (ret) {
-		pr_err("KI: failed to register mount kfunc: %d\n", ret);
+		pr_err("KI: failed to register filesystem kfunc: %d\n", ret);
 		ki_kfunc_unregister(&ki_module_kfunc);
 		ki_kfunc_unregister(&ki_process_kfunc);
 		ki_kfunc_unregister(&ki_uname_kfunc);
@@ -65,7 +65,7 @@ static int __init ki_core_init(void)
 	ret = ki_safemode_init();
 	if (ret) {
 		pr_err("KI: failed to initialize safe mode detection: %d\n", ret);
-		ki_kfunc_unregister(&ki_mount_kfunc);
+		ki_kfunc_unregister(&ki_filesystem_kfunc);
 		ki_kfunc_unregister(&ki_module_kfunc);
 		ki_kfunc_unregister(&ki_process_kfunc);
 		ki_kfunc_unregister(&ki_uname_kfunc);
@@ -77,7 +77,7 @@ static int __init ki_core_init(void)
 		pr_err("KI: failed to register /dev/%s: %d\n",
 		       KI_DEVICE_NAME, ret);
 		ki_safemode_exit();
-		ki_kfunc_unregister(&ki_mount_kfunc);
+		ki_kfunc_unregister(&ki_filesystem_kfunc);
 		ki_kfunc_unregister(&ki_module_kfunc);
 		ki_kfunc_unregister(&ki_process_kfunc);
 		ki_kfunc_unregister(&ki_uname_kfunc);
@@ -89,7 +89,7 @@ static int __init ki_core_init(void)
 		pr_err("KI: hook backend initialization failed: %d\n", ret);
 		ki_device_exit();
 		ki_safemode_exit();
-		ki_kfunc_unregister(&ki_mount_kfunc);
+		ki_kfunc_unregister(&ki_filesystem_kfunc);
 		ki_kfunc_unregister(&ki_module_kfunc);
 		ki_kfunc_unregister(&ki_process_kfunc);
 		ki_kfunc_unregister(&ki_uname_kfunc);
@@ -106,7 +106,7 @@ static void __exit ki_core_exit(void)
 	ki_hook_exit();
 	ki_device_exit();
 	ki_safemode_exit();
-	ki_kfunc_unregister(&ki_mount_kfunc);
+	ki_kfunc_unregister(&ki_filesystem_kfunc);
 	ki_kfunc_unregister(&ki_module_kfunc);
 	ki_kfunc_unregister(&ki_process_kfunc);
 	ki_kfunc_unregister(&ki_uname_kfunc);
