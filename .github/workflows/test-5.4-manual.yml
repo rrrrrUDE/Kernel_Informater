@@ -37,6 +37,7 @@ jobs:
           rm -rf kernel-tree/kernel/Kernel_Informater/uapi
           mkdir -p kernel-tree/kernel/Kernel_Informater/uapi
           cp -a uapi/. kernel-tree/kernel/Kernel_Informater/uapi/
+          sh kernel-tree/kernel/Kernel_Informater/integrate.sh kernel-tree
 
       - name: Configure Manual Hook
         working-directory: kernel-tree
