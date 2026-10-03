@@ -68,9 +68,9 @@ int ki_kfunc_reset_all_config(void)
 	mutex_lock(&ki_kfunc_lock);
 	list_for_each_entry(node, &ki_kfunc_list, list) {
 		if (node->kfunc->config_reset) {
-			int current = node->kfunc->config_reset();
-			if (current && !ret)
-				ret = current;
+			int current_ret = node->kfunc->config_reset();
+			if (current_ret && !ret)
+				ret = current_ret;
 		}
 	}
 	mutex_unlock(&ki_kfunc_lock);
@@ -86,9 +86,9 @@ int ki_kfunc_reset_all_func(void)
 	mutex_lock(&ki_kfunc_lock);
 	list_for_each_entry(node, &ki_kfunc_list, list) {
 		if (node->kfunc->func_reset) {
-			int current = node->kfunc->func_reset();
-			if (current && !ret)
-				ret = current;
+			int current_ret = node->kfunc->func_reset();
+			if (current_ret && !ret)
+				ret = current_ret;
 		}
 	}
 	mutex_unlock(&ki_kfunc_lock);
