@@ -32,7 +32,7 @@ jobs:
           set -eux
           mkdir -p kernel-tree/kernel/Kernel_Informater
           cp -a kernel/. kernel-tree/kernel/Kernel_Informater/
-          printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' >> kernel-tree/kernel/Kconfig
+          printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' >> kernel-tree/Kconfig
           printf '\nobj-$(CONFIG_KI) += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
 
       - name: Configure Manual Hook
