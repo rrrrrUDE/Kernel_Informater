@@ -91,7 +91,7 @@ static const char kicmd_help_list[] =
 	"  list process             List visible processes\n"
 	"  list process <pid>       Show process information\n"
 	"  list module              List loaded kernel modules\n"
-	"  list mount               List current mount entries\n"
+	"  list filesystem          List current filesystem mount entries\n"
 	"\n"
 	"Options:\n"
 	"  -h, --help   Print help\n";
