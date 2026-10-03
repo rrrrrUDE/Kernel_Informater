@@ -2,7 +2,6 @@
 #include <linux/capability.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
-#include <linux/version.h>
 #include <linux/namei.h>
 #include <linux/cred.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
