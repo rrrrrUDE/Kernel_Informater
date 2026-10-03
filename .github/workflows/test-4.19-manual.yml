@@ -1,4 +1,4 @@
-name: Test Build Kernel 4.19 Non-GKI Manual Hook
+name: Gauguin LKM Build
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
 
       - name: Checkout Android Common
         run: |
-          git clone --depth=1 --branch deprecated/android-4.19 https://android.googlesource.com/kernel/common kernel-tree
+          git clone --depth=1 https://github.com/rrrrrUDE/android_kernel_xiaomi_gauguin.git
 
       - name: Install build dependencies
         run: |
