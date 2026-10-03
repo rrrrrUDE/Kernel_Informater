@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: LKM · Android 4.19 · Manual Hook
+    name: LKM · Android 4.19 · Manual Hook · Signed
     runs-on: ubuntu-latest
 
     steps:
@@ -86,7 +86,7 @@ jobs:
             fi
           done
 
-          echo "=== LLVM ==="
+          echo "=== LLVM toolchain ==="
           clang --version
           clang++ --version
           ld.lld --version
@@ -114,50 +114,11 @@ jobs:
           clang --version | head -n 1
           ld.lld --version | head -n 1
 
-      - name: Inspect kernel signing support
-        working-directory: kernel-tree
-        run: |
-          set -eux
-
-          echo "=== Kernel Makefile mod_sign_cmd ==="
-
-          grep -n -A8 -B3 \
-            'mod_sign_cmd' \
-            Makefile
-
-          echo "=== Kernel signing files ==="
-
-          find . -maxdepth 3 -type f \
-            \( \
-              -name 'signing_key.pem' \
-              -o -name 'signing_key.priv' \
-              -o -name 'signing_key.x509' \
-              -o -name 'verity_dev_keys.x509' \
-            \) \
-            -print
-
-          echo "=== Existing verity_dev_keys.x509 ==="
-
-          if [ -f verity_dev_keys.x509 ]; then
-            ls -lh verity_dev_keys.x509
-            file verity_dev_keys.x509
-
-            openssl x509 \
-              -in verity_dev_keys.x509 \
-              -noout \
-              -subject \
-              -issuer \
-              -serial \
-              -fingerprint \
-              -sha256
-          fi
-
       - name: Integrate Kernel Informater
         run: |
           set -eux
 
-          mkdir -p \
-            kernel-tree/kernel/Kernel_Informater
+          mkdir -p kernel-tree/kernel/Kernel_Informater
 
           cp -a \
             kernel/. \
@@ -183,7 +144,7 @@ jobs:
             kernel-tree/kernel/Kernel_Informater/integrate.sh \
             kernel-tree
 
-      - name: Configure Manual Hook
+      - name: Configure Manual Hook and Module Signing
         working-directory: kernel-tree
         run: |
           set -eux
@@ -194,6 +155,7 @@ jobs:
             LLVM_IAS=1 \
             defconfig
 
+          # Kernel Informater
           scripts/config \
             --enable CONFIG_MODULES
 
@@ -203,8 +165,28 @@ jobs:
           scripts/config \
             --disable CONFIG_KI_TRACEPOINT_HOOK
 
+          # Disable unrelated debug configuration
           scripts/config \
             --disable CONFIG_KGDB
+
+          # Kernel module signing
+          scripts/config \
+            --enable CONFIG_MODULE_SIG
+
+          scripts/config \
+            --enable CONFIG_MODULE_SIG_FORCE
+
+          scripts/config \
+            --enable CONFIG_MODULE_SIG_ALL
+
+          scripts/config \
+            --enable CONFIG_MODULE_SIG_SHA512
+
+          scripts/config \
+            --set-str CONFIG_MODULE_SIG_HASH sha512
+
+          scripts/config \
+            --set-str CONFIG_MODULE_SIG_KEY certs/signing_key.pem
 
           make \
             ARCH=arm64 \
@@ -215,17 +197,23 @@ jobs:
           echo "=== Effective KI configuration ==="
 
           grep -E \
-            '^(CONFIG_KI|CONFIG_MODULES|CONFIG_KI_TRACEPOINT_HOOK|CONFIG_TRACEPOINTS)=' \
+            '^(CONFIG_KI=|CONFIG_KI_TRACEPOINT_HOOK=|CONFIG_MODULES=)' \
             .config || true
 
-          echo "=== Module signing configuration ==="
+          echo "=== Effective module signing configuration ==="
 
           grep -E \
-            '^(CONFIG_MODULE_SIG|CONFIG_MODULE_SIG_KEY|CONFIG_MODULE_SIG_HASH)=' \
-            .config || true
+            '^(CONFIG_MODULE_SIG|CONFIG_MODULE_SIG_FORCE|CONFIG_MODULE_SIG_ALL|CONFIG_MODULE_SIG_SHA512|CONFIG_MODULE_SIG_HASH|CONFIG_MODULE_SIG_KEY)=' \
+            .config
 
           test "$(grep -c '^CONFIG_KI=m$' .config)" -eq 1
           test "$(grep -c '^CONFIG_MODULES=y$' .config)" -eq 1
+          test "$(grep -c '^CONFIG_MODULE_SIG=y$' .config)" -eq 1
+          test "$(grep -c '^CONFIG_MODULE_SIG_FORCE=y$' .config)" -eq 1
+          test "$(grep -c '^CONFIG_MODULE_SIG_ALL=y$' .config)" -eq 1
+          test "$(grep -c '^CONFIG_MODULE_SIG_SHA512=y$' .config)" -eq 1
+          grep -q '^CONFIG_MODULE_SIG_HASH="sha512"$' .config
+          grep -q '^CONFIG_MODULE_SIG_KEY="certs/signing_key.pem"$' .config
 
       - name: Verify Manual Hook mode
         working-directory: kernel-tree
@@ -245,44 +233,12 @@ jobs:
 
           test "${VERSION}" -ge 3
 
-          if grep -q \
-            '^CONFIG_KI_TRACEPOINT_HOOK=y$' \
-            .config
-          then
-            echo "ERROR: Tracepoint Hook is enabled"
+          if grep -q '^CONFIG_KI_TRACEPOINT_HOOK=y$' .config; then
+            echo "ERROR: Tracepoint Hook must be disabled for Android 4.19."
             exit 1
           fi
 
-      - name: Verify module signing configuration
-        working-directory: kernel-tree
-        run: |
-          set -eux
-
-          echo "=== Module signing configuration ==="
-
-          grep -E \
-            '^(CONFIG_MODULE_SIG|CONFIG_MODULE_SIG_FORCE|CONFIG_MODULE_SIG_ALL|CONFIG_MODULE_SIG_HASH|CONFIG_MODULE_SIG_KEY)=' \
-            .config || true
-
-          echo "=== mod_sign_cmd ==="
-
-          grep -n -A6 -B3 \
-            'mod_sign_cmd' \
-            Makefile
-
-          echo "=== Signing certificate ==="
-
-          test -f certs/signing_key.x509
-
-          ls -lh \
-            certs/signing_key.x509
-
-          echo "=== sign-file ==="
-
-          test -x scripts/sign-file || \
-            test -f scripts/sign-file
-
-      - name: Prepare external module build
+      - name: Prepare kernel build system
         working-directory: kernel-tree
         run: |
           set -eux
@@ -292,7 +248,81 @@ jobs:
             LLVM=1 \
             LLVM_IAS=1 \
             HOSTCFLAGS=-fcommon \
+            scripts
+
+          make -j2 \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            HOSTCFLAGS=-fcommon \
             modules_prepare
+
+      - name: Generate kernel module signing certificate
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          echo "=== Module signing setup ==="
+
+          echo "CONFIG_MODULE_SIG_KEY:"
+          grep '^CONFIG_MODULE_SIG_KEY=' .config
+
+          echo "=== Before generation ==="
+
+          ls -lh \
+            certs/signing_key.pem \
+            certs/signing_key.x509 \
+            2>/dev/null || true
+
+          # Let the kernel's own certs/Makefile generate the signing
+          # key/certificate when the configured key is not already present.
+          make -j2 \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            HOSTCFLAGS=-fcommon \
+            certs/signing_key.x509
+
+          echo "=== After generation ==="
+
+          test -f certs/signing_key.pem
+          test -f certs/signing_key.x509
+
+          ls -lh \
+            certs/signing_key.pem \
+            certs/signing_key.x509
+
+          echo "=== Signing certificate information ==="
+
+          openssl x509 \
+            -in certs/signing_key.x509 \
+            -noout \
+            -subject \
+            -issuer \
+            -serial \
+            -fingerprint \
+            -sha256
+
+      - name: Verify mod_sign_cmd
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          echo "=== Kernel mod_sign_cmd ==="
+
+          grep -n -A5 -B3 \
+            'mod_sign_cmd' \
+            Makefile
+
+          echo "=== Expected signing certificate ==="
+
+          test -f certs/signing_key.x509
+
+          echo "=== sign-file ==="
+
+          test -f scripts/sign-file
+
+          file scripts/sign-file
 
       - name: Build Kernel Informater
         working-directory: kernel-tree
@@ -310,7 +340,7 @@ jobs:
           test -f \
             kernel/Kernel_Informater/ki.ko
 
-          echo "=== Built module ==="
+          echo "=== Final Kernel Informater module ==="
 
           ls -lh \
             kernel/Kernel_Informater/ki.ko
@@ -327,32 +357,28 @@ jobs:
 
           test -f "${KO}"
 
-          echo "=== Module information ==="
+          echo "=== modinfo ==="
 
           modinfo "${KO}" || true
 
-          echo "=== Signature information ==="
+          echo "=== Signature fields ==="
 
           modinfo "${KO}" | \
             grep -E \
-              '^(signer|sig_key|sig_hashalgo):' \
-              || true
+              '^(signer|sig_key|sig_hashalgo):'
 
-          echo "=== Kernel module signature marker ==="
+          echo "=== Signature verification ==="
 
-          if modinfo "${KO}" | \
-              grep -q '^sig_hashalgo:'
-          then
-            echo "Kernel Informater module is signed."
-          else
-            echo "ERROR: Kernel Informater module does not contain a recognized signature."
-            exit 1
-          fi
+          SIG_HASH=$(modinfo "${KO}" | \
+            sed -n 's/^sig_hashalgo:[[:space:]]*//p')
+
+          test "${SIG_HASH}" = "sha512"
+
+          echo "Detected module signature hash: ${SIG_HASH}"
 
           echo "=== Final module ==="
 
           ls -lh "${KO}"
-
           file "${KO}"
 
       - name: Upload signed LKM
