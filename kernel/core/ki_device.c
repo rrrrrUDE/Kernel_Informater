@@ -223,17 +223,28 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return 0;
 	}
 	case KI_IOC_PROCESS_READ_MEMORY: {
-		struct ki_ioc_process_read read;
+		struct ki_ioc_process_read *read;
 		int ret;
 
-		if (copy_from_user(&read, (void __user *)arg, sizeof(read)))
-			return -EFAULT;
-		ret = ki_process_read_memory(&read);
+		read = kmalloc(sizeof(*read), GFP_KERNEL);
+		if (!read)
+			return -ENOMEM;
+
+		if (copy_from_user(read, (void __user *)arg, sizeof(*read))) {
+			ret = -EFAULT;
+			goto out_process_read;
+		}
+
+		ret = ki_process_read_memory(read);
 		if (ret)
-			return ret;
-		if (copy_to_user((void __user *)arg, &read, sizeof(read)))
-			return -EFAULT;
-		return 0;
+			goto out_process_read;
+
+		if (copy_to_user((void __user *)arg, read, sizeof(*read)))
+			ret = -EFAULT;
+
+out_process_read:
+		kfree(read);
+		return ret;
 	}
 	case KI_IOC_LIST_LINE: {
 		struct ki_ioc_list_line line;
