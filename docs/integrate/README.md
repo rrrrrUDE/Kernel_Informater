@@ -11,10 +11,10 @@ curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh
 不指定 Hook 参数时，脚本会询问：
 
 ```text
-Enable automatic GKI tracepoint/kprobe hook? [y/N]:
+Enable Tracepoint Syscall Redirect hook? [y/N]:
 ```
 
-输入 `y` 使用Kprobe Hook；输入 `n` 或者其他（包括直接回车）都会选择手动源码集成（执行 `kernel/integrate.sh`）。
+输入 `y` 使用Tracepoint Syscall Redirect Hook；输入 `n` 或者其他（包括直接回车）都会选择手动源码集成（执行 `kernel/integrate.sh`）。
 
 也可以这样子：
 
@@ -22,7 +22,7 @@ Enable automatic GKI tracepoint/kprobe hook? [y/N]:
 curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --manual-hook
 ```
 
-如果你想使用Kprobe Hook，执行：
+如果你想使用Tracepoint Syscall Redirect Hook，执行：
 
 ```bash
 curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --auto-hook
