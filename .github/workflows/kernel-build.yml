@@ -21,7 +21,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 clang-14 lld-14
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 clang-14 lld-14 binutils-aarch64-linux-gnu
 
       - name: Integrate Kernel Informater
         run: |
@@ -45,9 +45,9 @@ jobs:
       - name: Prepare module build tools
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 modules_prepare
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- HOSTCFLAGS=-fcommon LLVM_IAS=1 modules_prepare
 
       - name: Compile Kernel Informater LKM
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
