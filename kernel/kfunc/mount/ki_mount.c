@@ -143,9 +143,9 @@ int ki_mount_list_line(unsigned int index, char *line, size_t size)
 	if (!line || !size) return -EINVAL;
 	file = filp_open("/proc/self/mountinfo", O_RDONLY | O_CLOEXEC, 0);
 	if (IS_ERR(file)) return PTR_ERR(file);
-	buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	buf = kzalloc(KI_MOUNT_LIST_MAX, GFP_KERNEL);
 	if (!buf) { filp_close(file, NULL); return -ENOMEM; }
-	len = kernel_read(file, buf, PAGE_SIZE - 1, &pos);
+	len = ki_kernel_read(file, buf, KI_MOUNT_LIST_MAX - 1, &pos);
 	filp_close(file, NULL);
 	if (len < 0) { kfree(buf); return len; }
 	buf[len] = '\0';

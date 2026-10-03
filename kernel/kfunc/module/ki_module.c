@@ -2,14 +2,12 @@
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/kernel.h>
-#include <linux/kmod.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include "ki_kfunc.h"
 #include "ki_fs_compat.h"
 #include "ki_module.h"
 
-#define KI_MODULE_MAX_ARGS 16
 #define KI_MODULE_LIST_MAX (64 * 1024)
 
 static int ki_module_get_real(const char *key, char *value, size_t size)
@@ -51,9 +49,9 @@ int ki_module_list_line(unsigned int index, char *line, size_t size)
 	if (!line || !size) return -EINVAL;
 	file = filp_open("/proc/modules", O_RDONLY | O_CLOEXEC, 0);
 	if (IS_ERR(file)) return PTR_ERR(file);
-	buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	buf = kzalloc(KI_MODULE_LIST_MAX, GFP_KERNEL);
 	if (!buf) { filp_close(file, NULL); return -ENOMEM; }
-	len = kernel_read(file, buf, PAGE_SIZE - 1, &pos);
+	len = ki_kernel_read(file, buf, KI_MODULE_LIST_MAX - 1, &pos);
 	filp_close(file, NULL);
 	if (len < 0) { kfree(buf); return len; }
 	buf[len] = '\0';
