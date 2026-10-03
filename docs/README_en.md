@@ -39,6 +39,8 @@ Uses Tracepoint Syscall Redirect to implement Hooking.
 
 ⚠️ Supported for Android GKI 2.0+ kernels (5.10+). GKI 1.0, non-GKI kernels, and 5.4-or-older kernels must use Manual Hook.
 
+The setup script reads `VERSION` and `PATCHLEVEL` directly from the target kernel root `Makefile` and only deploys the automatic Tracepoint Hook when the detected version is 5.10 or newer. Older kernels are kept on the Manual Hook path.
+
 ## Kernel Informater User Directory
 
 Persistent configuration, debug logs, and the safe-mode marker are stored in:

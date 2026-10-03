@@ -89,7 +89,7 @@ static void ki_tp_enter(void *unused, struct pt_regs *regs, long id)
 
 	(void)unused;
 
-	if (id != __NR_uname || !current->mm)
+	if (unlikely(id != __NR_uname) || !current->mm)
 		return;
 
 #ifdef CONFIG_COMPAT

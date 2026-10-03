@@ -290,15 +290,13 @@ select_hook_mode
 
 # Refuse unsupported Tracepoint Syscall Redirect deployment before cloning,
 # linking, or modifying the target kernel tree.
-if [ "$HOOK_MODE" = tracepoint ]; then
+if [ "$HOOK_MODE" = tracepoint ] && !tracepoint_hook_supported; then
 	version=$(kernel_version 2>/dev/null || echo "unknown")
-	major=$(printf "%s" "$version" | cut -d. -f1)
-	minor=$(printf "%s" "$version" | cut -d. -f2)
-	case "$major:$minor" in
-		5:10|5:1[1-9]|5:[2-9][0-9]|[6-9]:*|[1-9][0-9]:*) ;;
-		*) die "Tracepoint Syscall Redirect requires kernel VERSION/PATCHLEVEL >= 5.10 (detected $version). Use --manual-hook." ;;
-	esac
-	echo "[OK] Kernel VERSION/PATCHLEVEL check passed: $version"
+	die "Tracepoint Syscall Redirect requires kernel VERSION/PATCHLEVEL >= 5.10 (detected $version). Use --manual-hook."
+fi
+
+if [ "$HOOK_MODE" = tracepoint ]; then
+	echo "[OK] Kernel VERSION/PATCHLEVEL check passed: $(kernel_version)"
 fi
 
 clone_or_update_repo
@@ -307,17 +305,10 @@ integrate_kernel_tree
 
 case "$HOOK_MODE" in
 	tracepoint)
-		version=$(kernel_version 2>/dev/null || echo "unknown")
-		major=$(printf "%s" "$version" | cut -d. -f1)
-		minor=$(printf "%s" "$version" | cut -d. -f2)
-		case "$major:$minor" in
-			5:10|5:1[1-9]|5:[2-9][0-9]|[6-9]:*|[1-9][0-9]:*) ;;
-			*) die "Tracepoint Syscall Redirect requires kernel VERSION/PATCHLEVEL >= 5.10 (detected $version). Use --manual-hook." ;;
-		esac
 		remove_manual_hook
 		ensure_tracepoint_default
 		echo "[+] Automatic GKI Tracepoint Syscall Redirect hook selected."
-		echo "[+] Kernel VERSION/PATCHLEVEL check passed: $version."
+		echo "[+] Kernel VERSION/PATCHLEVEL check passed: $(kernel_version)."
 		;;
 	manual)
 		ensure_manual_default

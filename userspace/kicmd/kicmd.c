@@ -16,6 +16,8 @@
 
 static int ki_ioctl(int fd, unsigned long request, void *arg);
 static int open_ki_checked(void);
+static int cmd_list_process(int fd, int argc, char **argv);
+static int cmd_func_process(int argc, char **argv);
 static int check_kfunc_feature(int fd, const char *kfunc, unsigned int feature)
 {
 	struct ki_ioc_kfunc_features info;
@@ -629,13 +631,6 @@ static int cmd_config(int argc, char **argv)
 		return argc < 2 ? 1 : 0;
 	}
 
-	if (!strcmp(argv[1], "process")) {
-		ret = cmd_func_process(argc - 1, argv + 1);
-		if (ret)
-			fprintf(stderr, "%s: func process: %s\n", KICMD_NAME,
-				strerror(-ret));
-		return ret ? 1 : 0;
-	}
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
 		if (argc != 5)
@@ -930,7 +925,6 @@ static int list_process(int fd)
 {
 	struct ki_ioc_process_entry entry;
 	unsigned int index = 0;
-	int ret;
 
 	printf("PID\tPPID\tUID\tSTATE\tNAME\n");
 	for (;;) {
