@@ -7,7 +7,7 @@
 #include <linux/task_work.h>
 #include <linux/tracepoint.h>
 
-#include <asm/ptrace.h>
+#include <asm/syscall.h>
 #include <asm/unistd.h>
 
 #include "ki.h"
@@ -18,19 +18,16 @@
 #include <trace/events/syscalls.h>
 #endif
 
-#ifdef CONFIG_KI_KPROBEHOOK
+#ifdef CONFIG_KI_TRACEPOINT_HOOK
 
 /*
- * Modern Android GKI backend:
+ * Android GKI 2.0 backend:
  *
- * - Prefer raw syscall tracepoints (sys_enter/sys_exit).
- * - Fall back to arm64 syscall-wrapper kretprobes.
- *
- * The callback never writes userspace memory directly. It records the uname
- * destination pointer and schedules task_work so the final copy happens in
- * normal task context immediately before returning to userspace.
+ * Trace the native uname() syscall at sys_enter/sys_exit and defer the
+ * userspace rewrite to task_work. The tracepoint callback never writes to
+ * userspace directly, which keeps the redirect out of the tracepoint's
+ * RCU/atomic execution context.
  */
-
 struct ki_task_work {
 	struct callback_head task_work;
 	void __user *name;
@@ -87,8 +84,8 @@ static bool ki_tp_registered_exit;
 static void ki_tp_enter(void *unused, struct pt_regs *regs, long id)
 {
 	struct ki_tp_call *call;
+	unsigned long args[1];
 	unsigned long flags;
-	unsigned long name;
 
 	(void)unused;
 
@@ -100,9 +97,8 @@ static void ki_tp_enter(void *unused, struct pt_regs *regs, long id)
 		return;
 #endif
 
-	/* Native arm64 GKI uname() receives its output pointer in x0. */
-	name = regs->regs[0];
-	if (!name)
+	syscall_get_arguments(current, regs, args);
+	if (!args[0])
 		return;
 
 	call = kmalloc(sizeof(*call), GFP_ATOMIC);
@@ -110,7 +106,7 @@ static void ki_tp_enter(void *unused, struct pt_regs *regs, long id)
 		return;
 
 	call->task = current;
-	call->name = (void __user *)name;
+	call->name = (void __user *)args[0];
 
 	spin_lock_irqsave(&ki_tp_lock, flags);
 	hash_add(ki_tp_calls, &call->node, (unsigned long)current);
@@ -128,7 +124,7 @@ static void ki_tp_exit(void *unused, struct pt_regs *regs, long ret)
 
 	spin_lock_irqsave(&ki_tp_lock, flags);
 	hash_for_each_possible_safe(ki_tp_calls, call, tmp, node,
-					(unsigned long)current) {
+				    (unsigned long)current) {
 		if (call->task == current) {
 			hash_del(&call->node);
 			break;
@@ -146,7 +142,7 @@ static void ki_tp_exit(void *unused, struct pt_regs *regs, long ret)
 	kfree(call);
 }
 
-static int ki_tracepoint_init(void)
+static int ki_tracepoint_hook_init(void)
 {
 	int ret;
 
@@ -164,11 +160,11 @@ static int ki_tracepoint_init(void)
 	}
 	ki_tp_registered_exit = true;
 
-	pr_info("KI: GKI raw syscall tracepoint hook enabled\n");
+	pr_info("KI: Tracepoint Syscall Redirect hook enabled\n");
 	return 0;
 }
 
-static void ki_tracepoint_exit(void)
+static void ki_tracepoint_hook_exit(void)
 {
 	struct ki_tp_call *call;
 	struct hlist_node *tmp;
@@ -194,78 +190,38 @@ static void ki_tracepoint_exit(void)
 	spin_unlock_irqrestore(&ki_tp_lock, flags);
 }
 
-static bool ki_tracepoint_backend;
+#endif /* CONFIG_TRACEPOINTS && CONFIG_HAVE_SYSCALL_TRACEPOINTS */
 
+int ki_hook_init(void)
+{
+	int ret;
+
+	ret = ki_process_hook_init();
+	if (ret) {
+		pr_err("KI: process lifecycle hook initialization failed: %d\n",
+		       ret);
+		return ret;
+	}
+
+#ifdef CONFIG_KI_TRACEPOINT_HOOK
+	ret = ki_tracepoint_hook_init();
+	if (ret) {
+		pr_err("KI: Tracepoint Syscall Redirect hook initialization failed: %d\n",
+		       ret);
+		ki_process_hook_exit();
+		return ret;
+	}
 #else
-static inline int ki_tracepoint_init(void)
-{
-	return -EOPNOTSUPP;
-}
-
-static inline void ki_tracepoint_exit(void)
-{
-}
-
-static bool ki_tracepoint_backend;
+	pr_info("KI: manual hook mode selected\n");
 #endif
 
-
-int ki_hook_init(void)
-{
-	int ret;
-
-	ret = ki_process_hook_init();
-	if (ret) {
-		pr_err("KI: process lifecycle hook initialization failed: %d\n",
-		       ret);
-		return ret;
-	}
-
-	if (!IS_ENABLED(CONFIG_KI_KPROBEHOOK)) {
-		pr_info("KI: manual hook mode selected\n");
-		return 0;
-	}
-
-	ret = ki_tracepoint_init();
-	if (ret) {
-		pr_err("KI: GKI tracepoint hook unavailable: %d\n", ret);
-		return ret;
-	}
-
-	ki_tracepoint_backend = true;
 	return 0;
 }
 
 void ki_hook_exit(void)
 {
-	ki_process_hook_exit();
-
-	if (ki_tracepoint_backend) {
-		ki_tracepoint_exit();
-		ki_tracepoint_backend = false;
-	}
-}
-
-#else /* !CONFIG_KI_KPROBEHOOK */
-
-int ki_hook_init(void)
-{
-	int ret;
-
-	ret = ki_process_hook_init();
-	if (ret) {
-		pr_err("KI: process lifecycle hook initialization failed: %d\n",
-		       ret);
-		return ret;
-	}
-
-	pr_info("KI: manual hook mode selected\n");
-	return 0;
-}
-
-void ki_hook_exit(void)
-{
+#ifdef CONFIG_KI_TRACEPOINT_HOOK
+	ki_tracepoint_hook_exit();
+#endif
 	ki_process_hook_exit();
 }
-
-#endif /* CONFIG_KI_KPROBEHOOK */

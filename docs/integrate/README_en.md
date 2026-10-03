@@ -14,7 +14,7 @@ If no Hook parameter is specified, the script will prompt:
 Enable Tracepoint Syscall Redirect hook? [y/N]:
 ```
 
-Enter `y` to use Tracepoint Syscall Redirect Hook; entering `n` or anything else (including pressing Enter directly) will select manual source integration (execute `kernel/integrate.sh`).
+Enter `y` to use Tracepoint Syscall Redirect Hook on Android GKI 2.0+ (5.10+); on 5.4 and older, or GKI 1.0/non-GKI trees, use manual source integration (execute `kernel/integrate.sh`).
 
 You can also use:
 
@@ -25,7 +25,7 @@ curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh
 If you want to use Tracepoint Syscall Redirect Hook, execute:
 
 ```bash
-curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --auto-hook
+curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --tracepoint-hook
 ```
 
 Or enter `y` when prompted.

@@ -12,7 +12,7 @@ KI_REPO_URL="${KI_REPO_URL:-https://github.com/rrrrrUDE/Kernel_Informater.git}"
 KI_DST="$GKI_ROOT/kernel/Kernel_Informater"
 KCONFIG="$GKI_ROOT/kernel/Kconfig"
 KMAKE="$GKI_ROOT/kernel/Makefile"
-AUTO_MARKER="$GKI_ROOT/kernel/.ki_auto_hook_default"
+AUTO_MARKER="$GKI_ROOT/kernel/.ki_tracepoint_hook_default"
 
 KCONFIG_LINE='source "kernel/Kernel_Informater/Kconfig"'
 KMAKE_LINE='obj-$(CONFIG_KI) += Kernel_Informater/'
@@ -28,7 +28,7 @@ Kernel Informater setup
 Usage: $0 [OPTIONS] [<commit-or-tag>]
 
 Options:
-  --auto-hook      Enable automatic GKI trace hooks.
+  --tracepoint-hook Enable Tracepoint Syscall Redirect hook.
   --manual-hook    Use source-level hooks through kernel/integrate.sh.
   --cleanup        Revert KI integration and remove the cloned KI tree.
   -h, --help       Show this help.
@@ -41,7 +41,7 @@ Environment:
 
 Examples:
   curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash
-  curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --auto-hook
+  curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --tracepoint-hook
   curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --manual-hook
   curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- v0.2.2
   sh kernel/setup.sh --cleanup
@@ -118,6 +118,19 @@ clone_or_update_repo() {
 	git submodule update --init --recursive
 }
 
+kernel_version() {
+	awk '/^VERSION[[:space:]]*=/ { version=$3 } /^PATCHLEVEL[[:space:]]*=/ { patchlevel=$3 } END { if (version != "" && patchlevel != "") print version "." patchlevel; else exit 1 }' "$GKI_ROOT/Makefile"
+}
+
+tracepoint_hook_supported() {
+	version=$(kernel_version 2>/dev/null || echo 0.0)
+	major=${version%%.*}
+	rest=${version#*.}
+	minor=${rest%%.*}
+
+	[ "$major" -gt 5 ] || { [ "$major" -eq 5 ] && [ "$minor" -ge 10 ]; }
+}
+
 set_hook_default() {
 	value=$1
 
@@ -126,19 +139,19 @@ set_hook_default() {
 	[ -f "$KI_REPO_DIR/kernel/Kconfig" ] ||
 		die "Kernel Informater Kconfig not found."
 
-	if grep -Eq '^[[:space:]]*default [yn] # KI_AUTO_HOOK_DEFAULT[[:space:]]*$' "$KI_REPO_DIR/kernel/Kconfig"; then
+	if grep -Eq '^[[:space:]]*default [yn] # KI_TRACEPOINT_HOOK_DEFAULT[[:space:]]*$' "$KI_REPO_DIR/kernel/Kconfig"; then
 		sed -i -E \
-			"s/^([[:space:]]*)default [yn] # KI_AUTO_HOOK_DEFAULT[[:space:]]*$/\1default $value # KI_AUTO_HOOK_DEFAULT/" \
+			"s/^([[:space:]]*)default [yn] # KI_TRACEPOINT_HOOK_DEFAULT[[:space:]]*$/\1default $value # KI_TRACEPOINT_HOOK_DEFAULT/" \
 			"$KI_REPO_DIR/kernel/Kconfig"
 	else
-		die "KI_KPROBEHOOK default marker not found in $KI_REPO_DIR/kernel/Kconfig"
+		die "KI_TRACEPOINT_HOOK default marker not found in $KI_REPO_DIR/kernel/Kconfig"
 	fi
 
 	printf '%s\n' "$value" > "$AUTO_MARKER"
-	echo "[+] CONFIG_KI_KPROBEHOOK default set to $value"
+	echo "[+] CONFIG_KI_TRACEPOINT_HOOK default set to $value"
 }
 
-ensure_auto_default() {
+ensure_tracepoint_default() {
 	set_hook_default y
 }
 
@@ -220,7 +233,7 @@ select_hook_mode() {
 	[ "$HOOK_MODE" = prompt ] || return 0
 
 	if [ -r /dev/tty ] && [ -w /dev/tty ]; then
-		printf "Enable automatic GKI trace hook? [y/N]: " > /dev/tty
+		printf "Enable Tracepoint Syscall Redirect hook? [y/N]: " > /dev/tty
 		read -r answer < /dev/tty || answer=
 
 		case "$answer" in
@@ -243,8 +256,8 @@ while [ "$#" -gt 0 ]; do
 		--cleanup)
 			MODE=cleanup
 			;;
-		--auto-hook)
-			HOOK_MODE=auto
+		--tracepoint-hook)
+			HOOK_MODE=tracepoint
 			;;
 		--manual-hook)
 			HOOK_MODE=manual

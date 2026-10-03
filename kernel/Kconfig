@@ -22,20 +22,23 @@ config KI_BOOTAPPLY
 	  does not perform periodic config file reads. Userspace config changes
 	  explicitly synchronize the kernel configuration.
 
-config KI_KPROBEHOOK
-	bool "Kernel Informater automatic GKI trace hook"
+config KI_TRACEPOINT_HOOK
+	bool "Tracepoint Syscall Redirect as GKI Hook"
 	default n # KI_AUTO_HOOK_DEFAULT
 	depends on ARM64
 	depends on ANDROID
+	depends on TRACEPOINTS
+	depends on HAVE_SYSCALL_TRACEPOINTS
 	depends on ANDROID_VENDOR_HOOKS
 	help
-	  Enable the automatic Android GKI vendor-hook backend.
+	  Enable the Tracepoint Syscall Redirect hook for Android GKI 2.0 kernels.
 
-	  This mode is for Android GKI kernels that provide the Android vendor
-	  hook framework (5.10+). It uses GKI trace hooks only; it does not use
-	  kprobes as a fallback.
+	  This automatic backend is intended for Android GKI 2.0+ (5.10+) and
+	  uses the kernel syscall tracepoint interface together with Android
+	  vendor trace hooks. It has no probe-based fallback path.
 
-	  For legacy Android/non-GKI kernels such as 5.4 and older, keep this
-	  disabled and use integrate.sh for source-level manual hooks.
+	  Android GKI 1.0, non-GKI kernels, and kernels at 5.4 or older must
+	  keep this option disabled and use integrate.sh for source-level
+	  manual hooks.
 
 endif

@@ -16,7 +16,7 @@
 
 #include "ki_process.h"
 
-#ifdef CONFIG_KI_KPROBEHOOK
+#ifdef CONFIG_KI_TRACEPOINT_HOOK
 #include <trace/hooks/sched.h>
 
 static bool ki_process_hooks_registered;
@@ -28,21 +28,6 @@ static void ki_process_gki_dup_task(void *unused,
 	(void)unused;
 	(void)orig;
 	ki_process_add(tsk);
-}
-
-static void ki_process_gki_set_task_comm(void *unused,
-					 struct task_struct *task)
-{
-	struct ki_process_record *record;
-	unsigned long flags;
-
-	(void)unused;
-
-	spin_lock_irqsave(&ki_process_lock, flags);
-	record = ki_process_find_locked(task_pid_nr(task));
-	if (record)
-		ki_process_update_record(record, task);
-	spin_unlock_irqrestore(&ki_process_lock, flags);
 }
 
 static void ki_process_gki_free_task(void *unused, struct task_struct *task)
@@ -61,11 +46,6 @@ int ki_process_hook_init(void)
 	if (ret)
 		return ret;
 
-	ret = register_trace_android_vh_set_task_comm(
-		ki_process_gki_set_task_comm, NULL);
-	if (ret)
-		goto err_dup;
-
 	ret = register_trace_android_vh_free_task(
 		ki_process_gki_free_task, NULL);
 	if (ret)
@@ -81,9 +61,6 @@ int ki_process_hook_init(void)
 	pr_info("KI: GKI process vendor hooks enabled\n");
 	return 0;
 
-err_comm:
-	unregister_trace_android_vh_set_task_comm(
-		ki_process_gki_set_task_comm, NULL);
 err_dup:
 	unregister_trace_android_vh_dup_task_struct(
 		ki_process_gki_dup_task, NULL);
@@ -96,8 +73,6 @@ void ki_process_hook_exit(void)
 	if (ki_process_hooks_registered) {
 		unregister_trace_android_vh_free_task(
 			ki_process_gki_free_task, NULL);
-		unregister_trace_android_vh_set_task_comm(
-			ki_process_gki_set_task_comm, NULL);
 		unregister_trace_android_vh_dup_task_struct(
 			ki_process_gki_dup_task, NULL);
 		tracepoint_synchronize_unregister();

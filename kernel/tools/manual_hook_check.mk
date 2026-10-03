@@ -2,8 +2,8 @@
 #
 # Kernel Informater manual-hook build-time checks.
 #
-# This file is included only when CONFIG_KI_KPROBEHOOK is disabled.
-# Legacy/non-GKI trees must contain the source-level KI hooks inserted by
+# This file is included only when CONFIG_KI_TRACEPOINT_HOOK is disabled.
+# GKI 1.0/non-GKI trees must contain the source-level KI hooks inserted by
 # kernel/integrate.sh.
 
 KI_MANUAL_HOOK_UNAME_FILE := $(srctree)/kernel/sys.c
@@ -23,8 +23,8 @@ ifeq ($$(shell grep -Fq "$(1)" "$(2)"; echo $$$$?),0)
 $$(info -- Kernel Informater/manual_hook: $(1) found in $(2))
 else
 $$(info -- Kernel Informater/manual_hook: $(1) not found in $(2))
-$$(info -- Run: kernel/integrate.sh <kernel-tree> or enable CONFIG_KI_KPROBEHOOK on a supported Android GKI tree.)
-$$(error Kernel Informater requires the manual hook when CONFIG_KI_KPROBEHOOK is disabled.)
+$$(info -- Run: kernel/integrate.sh <kernel-tree> or enable CONFIG_KI_TRACEPOINT_HOOK on a supported Android GKI tree.)
+$$(error Kernel Informater requires the manual hook when CONFIG_KI_TRACEPOINT_HOOK is disabled.)
 endif
 endef
 

@@ -17,9 +17,9 @@ See the [Integration Documentation](integrate/README_en.md).
 CONFIG_KI: Enable Kernel Informater
 CONFIG_KI_DEBUG: Enable debug mode
 CONFIG_KI_BOOTAPPLY: Let the kernel read and apply persistent configuration at boot.
-CONFIG_KI_TRACEPOINT_HOOK: Use Tracepoint Syscall Redirect to perform Hooking. (GKI Only. When disabled, manual Hooks will be used.)
+CONFIG_KI_TRACEPOINT_HOOK: Enable Tracepoint Syscall Redirect as the automatic GKI Hook. (GKI 2.0 / 5.10+ only; manual hooks remain available.)
 
-Automatic Hooking is disabled by default. The minimum configuration is:
+Tracepoint Syscall Redirect Hooking is disabled by default. The minimum configuration is:
 
 ```text
 CONFIG_KI=y
@@ -32,12 +32,12 @@ CONFIG_KI_TRACEPOINT_HOOK=n
 ### Manual Hook
 Hooks are integrated directly into the kernel source code.
 
-Supported kernel versions: 3.18 – 6.18+
+Supported kernel generations: legacy/GKI 1.0/non-GKI kernels, including 5.4 and below; GKI 2.0+ also supports manual integration.
 
 ### Tracepoint Syscall Redirect Hook
 Uses Tracepoint Syscall Redirect to implement Hooking.
 
-⚠️ Only supported on GKI 2.0+ kernels. Do not use this Hook method on GKI 1.0 or Non-GKI kernels.
+⚠️ Supported for Android GKI 2.0+ kernels (5.10+). GKI 1.0, non-GKI kernels, and 5.4-or-older kernels must use Manual Hook.
 
 ## Kernel Informater User Directory
 

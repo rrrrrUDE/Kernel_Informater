@@ -16,10 +16,10 @@ ccflags-y += -I$(src)/uapi
 ccflags-y += -I$(src)/kfunc/uname
 ccflags-y += -I$(src)/kfunc/process
 
-# When KI is enabled and automatic GKI hooks are disabled, require the
+# When KI is enabled and automatic GKI Tracepoint hooks are disabled, require the
 # source-level manual hook.
 ifneq ($(CONFIG_KI),)
-ifneq ($(CONFIG_KI_KPROBEHOOK),y)
+ifneq ($(CONFIG_KI_TRACEPOINT_HOOK),y)
 include $(src)/tools/manual_hook_check.mk
 endif
 endif
