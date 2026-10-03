@@ -761,24 +761,40 @@ static int cmd_config(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_DEL)) {
-		if (argc != 3)
-			return fprintf(stderr, "%s: usage: config del <kfunc>\n", KICMD_NAME), 1;
+		if (argc < 3 || argc > 4 || !argv[2] || !*argv[2] ||
+		    !valid_token(argv[2]))
+			return fprintf(stderr,
+				"%s: usage: config del <kfunc> [key]\n",
+				KICMD_NAME), 1;
+
 		kfunc = argv[2];
-{
+		key = argc == 4 ? argv[3] : NULL;
+		{
 			int fd = open_ki_checked();
 			if (fd < 0)
 				return 1;
 			ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_CONFIG);
 			close(fd);
 		}
-		if (!ret)
+		if (ret)
+			return fprintf(stderr, "%s: kfunc '%s' does not support config: %s\n",
+				KICMD_NAME, kfunc, strerror(-ret)), 1;
+
+		if (key && *key)
+			ret = cfg_unset(kfunc, key);
+		else
 			ret = cfg_reset_kfunc(kfunc);
 		if (ret)
-			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+			return fprintf(stderr, "%s: delete config: %s\n",
+				KICMD_NAME, strerror(-ret)), 1;
+
 		ret = cfg_sync();
 		if (ret)
 			return ret;
-		debug_log("config del %s", kfunc);
+		if (key && *key)
+			debug_log("config del %s.%s", kfunc, key);
+		else
+			debug_log("config del %s", kfunc);
 		return 0;
 	}
 

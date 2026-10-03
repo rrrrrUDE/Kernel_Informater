@@ -10,6 +10,8 @@
 #include "ki.h"
 #include "ki_kfunc.h"
 #include "ki_process.h"
+#include "ki_module.h"
+#include "ki_mount.h"
 
 static int ki_copy_ioc_value(struct ki_ioc_value *dst, unsigned long arg)
 {
@@ -230,6 +232,24 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (ret)
 			return ret;
 		if (copy_to_user((void __user *)arg, &read, sizeof(read)))
+			return -EFAULT;
+		return 0;
+	}
+	case KI_IOC_LIST_LINE: {
+		struct ki_ioc_list_line line;
+		int ret;
+
+		if (copy_from_user(&line, (void __user *)arg, sizeof(line)))
+			return -EFAULT;
+		if (line.type == KI_LIST_MODULE)
+			ret = ki_module_list_line(line.index, line.line, sizeof(line.line));
+		else if (line.type == KI_LIST_MOUNT)
+			ret = ki_mount_list_line(line.index, line.line, sizeof(line.line));
+		else
+			return -EINVAL;
+		if (ret)
+			return ret;
+		if (copy_to_user((void __user *)arg, &line, sizeof(line)))
 			return -EFAULT;
 		return 0;
 	}

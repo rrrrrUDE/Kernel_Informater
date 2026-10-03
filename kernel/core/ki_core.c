@@ -6,8 +6,12 @@
 #include "ki.h"
 #include "ki_kfunc.h"
 #include "ki_process.h"
+#include "ki_module.h"
+#include "ki_mount.h"
 
 extern struct ki_kfunc ki_uname_kfunc;
+extern struct ki_kfunc ki_module_kfunc;
+extern struct ki_kfunc ki_mount_kfunc;
 
 bool ki_debug = IS_ENABLED(CONFIG_KI_DEBUG);
 
@@ -31,6 +35,25 @@ static int __init ki_core_init(void)
 	ret = ki_kfunc_register(&ki_process_kfunc);
 	if (ret) {
 		pr_err("KI: failed to register process kfunc: %d\n", ret);
+		ki_kfunc_unregister(&ki_uname_kfunc);
+		return ret;
+	}
+
+	ret = ki_kfunc_register(&ki_module_kfunc);
+	if (ret) {
+		pr_err("KI: failed to register module kfunc: %d\n", ret);
+		ki_kfunc_unregister(&ki_mount_kfunc);
+		ki_kfunc_unregister(&ki_module_kfunc);
+		ki_kfunc_unregister(&ki_process_kfunc);
+		ki_kfunc_unregister(&ki_uname_kfunc);
+		return ret;
+	}
+
+	ret = ki_kfunc_register(&ki_mount_kfunc);
+	if (ret) {
+		pr_err("KI: failed to register mount kfunc: %d\n", ret);
+		ki_kfunc_unregister(&ki_module_kfunc);
+		ki_kfunc_unregister(&ki_process_kfunc);
 		ki_kfunc_unregister(&ki_uname_kfunc);
 		return ret;
 	}
@@ -79,6 +102,8 @@ static void __exit ki_core_exit(void)
 	ki_hook_exit();
 	ki_device_exit();
 	ki_safemode_exit();
+	ki_kfunc_unregister(&ki_mount_kfunc);
+	ki_kfunc_unregister(&ki_module_kfunc);
 	ki_kfunc_unregister(&ki_process_kfunc);
 	ki_kfunc_unregister(&ki_uname_kfunc);
 	pr_info("KI: Kernel Informater exited\n");

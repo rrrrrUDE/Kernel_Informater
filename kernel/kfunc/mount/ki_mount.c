@@ -9,6 +9,7 @@
 #include <linux/string.h>
 #include <linux/version.h>
 #include "ki.h"
+#include "ki_fs_compat.h"
 #include "ki_kfunc.h"
 #include "ki_mount.h"
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
@@ -19,6 +20,7 @@ extern int ksys_umount(char __user *name, int flags);
 
 #define KI_MOUNT_PATH_MAX 256
 #define KI_MOUNT_CONFIG_MAX 16
+#define KI_MOUNT_LIST_MAX (64 * 1024)
 static char ki_mount_paths[KI_MOUNT_CONFIG_MAX][KI_MOUNT_PATH_MAX];
 static DEFINE_MUTEX(ki_mount_lock);
 
@@ -114,9 +116,9 @@ static int ki_mount_get_real(const char *key, char *value, size_t size)
 	if (!key || !value || !size || strcmp(key, "count")) return -EINVAL;
 	file = filp_open("/proc/self/mountinfo", O_RDONLY | O_CLOEXEC, 0);
 	if (IS_ERR(file)) return PTR_ERR(file);
-	buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	buf = kzalloc(KI_MOUNT_LIST_MAX, GFP_KERNEL);
 	if (!buf) { filp_close(file, NULL); return -ENOMEM; }
-	len = kernel_read(file, buf, PAGE_SIZE - 1, &pos);
+	len = ki_kernel_read(file, buf, KI_MOUNT_LIST_MAX - 1, &pos);
 	filp_close(file, NULL);
 	if (len < 0) { kfree(buf); return len; }
 	while (len-- > 0) if (buf[len] == '\n') count++;
