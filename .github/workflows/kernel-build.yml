@@ -45,6 +45,7 @@ jobs:
         working-directory: kernel-tree
         run: |
           make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 scripts
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 scripts/mod/modpost
 
       - name: Compile Kernel Informater LKM
         working-directory: kernel-tree
