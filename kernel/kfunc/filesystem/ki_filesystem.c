@@ -128,6 +128,7 @@ static int ki_filesystem_stat(const char *path_name, char *value, size_t size)
 {
 	struct path path;
 	struct kstat stat;
+	char *copy;
 	kuid_t uid;
 	kgid_t gid;
 	int ret;
@@ -137,9 +138,13 @@ static int ki_filesystem_stat(const char *path_name, char *value, size_t size)
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
-	ret = kern_path(path_name, LOOKUP_FOLLOW, &path);
+	copy = kstrdup(path_name, GFP_KERNEL);
+	if (!copy)
+		return -ENOMEM;
+
+	ret = kern_path(copy, LOOKUP_FOLLOW, &path);
 	if (ret)
-		return ret;
+		goto out_free;
 
 	memset(&stat, 0, sizeof(stat));
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
@@ -148,24 +153,24 @@ static int ki_filesystem_stat(const char *path_name, char *value, size_t size)
 #else
 	ret = vfs_getattr(&path, &stat);
 #endif
-	if (ret)
-		goto out;
-
-	uid = stat.uid;
-	gid = stat.gid;
-	snprintf(value, size,
-		 "mode=%#o size=%lld blocks=%lld ino=%llu nlink=%u "
-		 "uid=%u gid=%u dev=%u:%u",
-		 stat.mode,
-		 (long long)stat.size,
-		 (long long)stat.blocks,
-		 (unsigned long long)stat.ino,
-		 (unsigned int)stat.nlink,
-		 from_kuid_munged(current_user_ns(), uid),
-		 from_kgid_munged(current_user_ns(), gid),
-		 MAJOR(stat.dev), MINOR(stat.dev));
-out:
+	if (!ret) {
+		uid = stat.uid;
+		gid = stat.gid;
+		snprintf(value, size,
+			 "mode=%#o size=%lld blocks=%lld ino=%llu nlink=%u "
+			 "uid=%u gid=%u dev=%u:%u",
+			 stat.mode,
+			 (long long)stat.size,
+			 (long long)stat.blocks,
+			 (unsigned long long)stat.ino,
+			 (unsigned int)stat.nlink,
+			 from_kuid_munged(current_user_ns(), uid),
+			 from_kgid_munged(current_user_ns(), gid),
+			 MAJOR(stat.dev), MINOR(stat.dev));
+	}
 	path_put(&path);
+out_free:
+	kfree(copy);
 	return ret;
 }
 
@@ -179,10 +184,7 @@ static int ki_filesystem_func_set(const char *key, const char *value)
 	if (!key || !value || !*value)
 		return -EINVAL;
 
-	if (!strcmp(key, "stat"))
-		return ki_filesystem_stat(value, (char *)value, KI_FS_PATH_MAX);
-
-	if (!strcmp(key, "umount"))
+		if (!strcmp(key, "umount"))
 		return ki_filesystem_umount(value, false);
 
 	if (!strcmp(key, "hot_unmount"))
@@ -227,6 +229,9 @@ static int ki_filesystem_get_real(const char *key, char *value, size_t size)
 
 	if (!key || !value || !size)
 		return -EINVAL;
+
+	if (!strncmp(key, "stat:", 5))
+		return ki_filesystem_stat(key + 5, value, size);
 
 	if (!strcmp(key, "count")) {
 		file = filp_open("/proc/self/mountinfo",
