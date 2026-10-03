@@ -36,6 +36,7 @@ jobs:
           cp -a kernel/. kernel-tree/kernel/Kernel_Informater/
           printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' >> kernel-tree/Kconfig
           printf '\nobj-$(CONFIG_KI) += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
+          cp -a uapi/. kernel-tree/kernel/Kernel_Informater/uapi/
 
       - name: Configure Tracepoint Syscall Redirect
         working-directory: kernel-tree
