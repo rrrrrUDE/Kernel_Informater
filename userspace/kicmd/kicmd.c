@@ -699,10 +699,22 @@ static int cmd_config(int argc, char **argv)
 	}
 
 
-	if (!strcmp(argv[1], "module"))
-		return module_func(argc - 1, argv + 1);
-	if (!strcmp(argv[1], "mount"))
-		return mount_func(argc - 1, argv + 1);
+
+	if (!strcmp(argv[1], "mount")) {
+		if (argc == 4 && !strcmp(argv[2], KICMD_SUB_DEL)) {
+			ret = cfg_unset("mount", argv[3]);
+			if (ret)
+				return fprintf(stderr, "%s: remove mount config: %s\n",
+					KICMD_NAME, strerror(-ret)), 1;
+			ret = cfg_sync();
+			if (ret)
+				return ret;
+			debug_log("config mount del %s", argv[3]);
+			return 0;
+		}
+		return fprintf(stderr, "%s: usage: config mount del <key>\n",
+			KICMD_NAME), 1;
+	}
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
 		if (argc != 5)
@@ -1158,10 +1170,17 @@ static int cmd_func(int argc, char **argv)
 	int ret;
 
 	if (argc < 2 || !strcmp(argv[1], "-h") ||
-	    !strcmp(argv[1], "--help") || !strcmp(argv[1], "help")) {
+		!strcmp(argv[1], "--help") || !strcmp(argv[1], "help")) {
 		fputs(kicmd_help_func, stdout);
 		return argc < 2 ? 1 : 0;
 	}
+
+	if (!strcmp(argv[1], "process"))
+		return cmd_func_process(argc - 1, argv + 1);
+	if (!strcmp(argv[1], "module"))
+		return module_func(argc - 1, argv + 1);
+	if (!strcmp(argv[1], "mount"))
+		return mount_func(argc - 1, argv + 1);
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
 		if (argc != 5)

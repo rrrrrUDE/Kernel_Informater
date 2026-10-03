@@ -6,7 +6,6 @@
 #include <linux/string.h>
 
 #include "ki.h"
-#include "ki_fs_compat.h"
 #include "ki_kfunc.h"
 
 static int ki_config_for_each_reset(void)
@@ -135,7 +134,7 @@ int ki_config_reload(void)
 		return -ENOMEM;
 	}
 
-	len = ki_kernel_read(file, buf, KI_CONFIG_MAX_SIZE, &pos);
+	len = kernel_read(file, buf, KI_CONFIG_MAX_SIZE, &pos);
 	filp_close(file, NULL);
 	if (len < 0) {
 		kfree(buf);

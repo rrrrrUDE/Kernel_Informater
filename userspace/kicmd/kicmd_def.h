@@ -70,7 +70,7 @@ static const char kicmd_help_config[] =
 	"Usage: kicmd config <COMMAND>\n"
 	"\n"
 	"Commands:\n"
-	"  del <kfunc>                  Delete persistent configuration\n"
+	"  del <kfunc>                  Delete all persistent configuration for a kfunc\n  mount del <key>               Delete one mount configuration entry\n"
 	"  set <kfunc> <key> <value>    Set persistent configuration\n"
 	"  unset <kfunc> <key>          Remove persistent configuration\n"
 	"  reset [<kfunc>]              Reset persistent configuration\n"

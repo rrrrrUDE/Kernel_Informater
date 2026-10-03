@@ -9,16 +9,12 @@ ki-y := core/ki_core.o \
 	core/ki_device.o \
 	core/ki_hook.o \
 	kfunc/uname/ki_uname.o \
-	kfunc/process/ki_process.o \
-	kfunc/module/ki_module.o \
-	kfunc/mount/ki_mount.o
+	kfunc/process/ki_process.o
 
 ccflags-y += -I$(src)/include
 ccflags-y += -I$(src)/uapi
 ccflags-y += -I$(src)/kfunc/uname
 ccflags-y += -I$(src)/kfunc/process
-ccflags-y += -I$(src)/kfunc/module
-ccflags-y += -I$(src)/kfunc/mount
 
 # When KI is enabled and automatic GKI Tracepoint hooks are disabled, require the
 # source-level manual hook.

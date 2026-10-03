@@ -94,9 +94,6 @@ static int ki_mount_func_set(const char *key, const char *value)
 	if (strcmp(key, "add")) return -EINVAL;
 	original = kstrdup(value, GFP_KERNEL);
 	if (!original) return -ENOMEM;
-	source = strsep(&target, "\t");
-	(void)source;
-	/* Rebind the parser using the original buffer so it can be freed safely. */
 	target = original;
 	source = strsep(&target, "\t");
 	if (!source || !target || !*source || !*target) ret = -EINVAL;
