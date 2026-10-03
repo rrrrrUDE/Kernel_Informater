@@ -20,7 +20,7 @@ jobs:
 
       - name: Checkout Android Common
         run: |
-          git clone --depth=1 https://github.com/rrrrrUDE/android_kernel_xiaomi_gauguin.git
+          git clone --depth=1 https://github.com/rrrrrUDE/android_kernel_xiaomi_gauguin.git kernel-tree
 
       - name: Install build dependencies
         run: |
