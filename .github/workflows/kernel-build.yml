@@ -38,6 +38,7 @@ jobs:
           make ARCH=arm64 defconfig
           scripts/config --enable CONFIG_KI
           scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
+          scripts/config --disable CONFIG_KGDB
           make ARCH=arm64 olddefconfig
 
       - name: Compile Kernel Informater
