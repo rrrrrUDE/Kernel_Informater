@@ -44,4 +44,4 @@ jobs:
       - name: Compile Kernel Informater
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=clang LD=ld.lld LLVM_IAS=1 CONFIG_KI=y kernel/Kernel_Informater/
+          make -j2 ARCH=arm64 CC=clang LD=ld.lld HOSTCFLAGS=-fcommon LLVM_IAS=1 CONFIG_KI=y kernel/Kernel_Informater/
