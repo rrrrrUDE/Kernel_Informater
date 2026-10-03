@@ -11,10 +11,10 @@ curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh
 If no Hook parameter is specified, the script will prompt:
 
 ```text
-Enable automatic GKI tracepoint/kprobe hook? [y/N]:
+Enable Tracepoint Syscall Redirect hook? [y/N]:
 ```
 
-Enter `y` to use Kprobe Hook; entering `n` or anything else (including pressing Enter directly) will select manual source integration (execute `kernel/integrate.sh`).
+Enter `y` to use Tracepoint Syscall Redirect Hook; entering `n` or anything else (including pressing Enter directly) will select manual source integration (execute `kernel/integrate.sh`).
 
 You can also use:
 
@@ -22,7 +22,7 @@ You can also use:
 curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --manual-hook
 ```
 
-If you want to use Kprobe Hook, execute:
+If you want to use Tracepoint Syscall Redirect Hook, execute:
 
 ```bash
 curl -LSs https://github.com/rrrrrUDE/Kernel_Informater/raw/main/kernel/setup.sh | bash -s -- --auto-hook
