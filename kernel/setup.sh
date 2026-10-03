@@ -28,7 +28,7 @@ Kernel Informater setup
 Usage: $0 [OPTIONS] [<commit-or-tag>]
 
 Options:
-  --auto-hook      Enable automatic GKI tracepoint/kprobe hooks.
+  --auto-hook      Enable automatic GKI trace hooks.
   --manual-hook    Use source-level hooks through kernel/integrate.sh.
   --cleanup        Revert KI integration and remove the cloned KI tree.
   -h, --help       Show this help.
@@ -220,7 +220,7 @@ select_hook_mode() {
 	[ "$HOOK_MODE" = prompt ] || return 0
 
 	if [ -r /dev/tty ] && [ -w /dev/tty ]; then
-		printf "Enable automatic GKI tracepoint/kprobe hook? [y/N]: " > /dev/tty
+		printf "Enable automatic GKI trace hook? [y/N]: " > /dev/tty
 		read -r answer < /dev/tty || answer=
 
 		case "$answer" in

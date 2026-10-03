@@ -23,18 +23,19 @@ config KI_BOOTAPPLY
 	  explicitly synchronize the kernel configuration.
 
 config KI_KPROBEHOOK
-	bool "Kernel Informater automatic GKI hook"
+	bool "Kernel Informater automatic GKI trace hook"
 	default n # KI_AUTO_HOOK_DEFAULT
 	depends on ARM64
-	depends on (TRACEPOINTS && HAVE_SYSCALL_TRACEPOINTS) || (KPROBES && KRETPROBES)
+	depends on ANDROID
+	depends on ANDROID_VENDOR_HOOKS
 	help
-	  Enable the automatic GKI hook backend.
+	  Enable the automatic Android GKI vendor-hook backend.
 
-	  KI prefers the raw syscall tracepoints used by modern GKI kernels and
-	  falls back to kretprobe plus task_work when the tracepoint backend is
-	  unavailable. The automatic backend targets Android GKI 5.10 and 6.1+.
+	  This mode is for Android GKI kernels that provide the Android vendor
+	  hook framework (5.10+). It uses GKI trace hooks only; it does not use
+	  kprobes as a fallback.
 
-	  Keep this disabled for legacy/non-GKI trees and use integrate.sh for
-	  source-level hooks.
+	  For legacy Android/non-GKI kernels such as 5.4 and older, keep this
+	  disabled and use integrate.sh for source-level manual hooks.
 
 endif

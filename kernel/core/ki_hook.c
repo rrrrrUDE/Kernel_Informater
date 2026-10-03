@@ -18,10 +18,6 @@
 #include <trace/events/syscalls.h>
 #endif
 
-#if defined(CONFIG_KPROBES) && defined(CONFIG_KRETPROBES)
-#include <linux/kprobes.h>
-#endif
-
 #ifdef CONFIG_KI_KPROBEHOOK
 
 /*
@@ -213,119 +209,6 @@ static inline void ki_tracepoint_exit(void)
 static bool ki_tracepoint_backend;
 #endif
 
-#if defined(CONFIG_KPROBES) && defined(CONFIG_KRETPROBES)
-
-struct ki_kret_data {
-	void __user *name;
-};
-
-static int ki_kret_entry(struct kretprobe_instance *ri, struct pt_regs *regs)
-{
-	struct ki_kret_data *data = ri->data;
-	struct pt_regs *sys_regs;
-
-	if (!current->mm)
-		return 1;
-
-#ifdef CONFIG_COMPAT
-	if (is_compat_task())
-		return 1;
-#endif
-
-	/* GKI arm64 syscall wrappers receive struct pt_regs * in x0. */
-	sys_regs = (struct pt_regs *)regs->regs[0];
-	if (!sys_regs)
-		return 1;
-
-	/* GKI syscall wrappers pass syscall arguments in regs->regs[0..5]. */
-	data->name = (void __user *)sys_regs->regs[0];
-	return data->name ? 0 : 1;
-}
-
-static int ki_kret_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
-{
-	struct ki_kret_data *data = ri->data;
-	long ret = regs_return_value(regs);
-
-	if (!ret && data->name)
-		return ki_schedule_user_patch(data->name);
-
-	return 0;
-}
-
-static struct kretprobe ki_kretprobes[] = {
-	{
-		.entry_handler = ki_kret_entry,
-		.handler = ki_kret_handler,
-		.data_size = sizeof(struct ki_kret_data),
-		.maxactive = 64,
-	},
-	{
-		.entry_handler = ki_kret_entry,
-		.handler = ki_kret_handler,
-		.data_size = sizeof(struct ki_kret_data),
-		.maxactive = 64,
-	},
-};
-
-static const char * const ki_kprobe_symbols[] = {
-	"__arm64_sys_uname",
-	"__arm64_sys_newuname",
-};
-
-static bool ki_kprobe_registered[ARRAY_SIZE(ki_kretprobes)];
-static bool ki_kprobe_backend;
-
-static int ki_kprobe_init(void)
-{
-	int i;
-	int ret;
-	int registered = 0;
-
-	for (i = 0; i < ARRAY_SIZE(ki_kretprobes); ++i) {
-		ki_kretprobes[i].kp.symbol_name = ki_kprobe_symbols[i];
-		ret = register_kretprobe(&ki_kretprobes[i]);
-		if (!ret) {
-			ki_kprobe_registered[i] = true;
-			registered++;
-			pr_info("KI: GKI kretprobe installed on %s\n",
-				ki_kprobe_symbols[i]);
-		} else if (ret != -ENOENT) {
-			pr_warn("KI: GKI kretprobe %s failed: %d\n",
-				ki_kprobe_symbols[i], ret);
-		}
-	}
-
-	if (!registered)
-		return -ENOENT;
-
-	return 0;
-}
-
-static void ki_kprobe_exit(void)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ki_kretprobes); ++i) {
-		if (ki_kprobe_registered[i]) {
-			unregister_kretprobe(&ki_kretprobes[i]);
-			ki_kprobe_registered[i] = false;
-		}
-	}
-}
-
-#else
-static inline int ki_kprobe_init(void)
-{
-	return -EOPNOTSUPP;
-}
-
-static inline void ki_kprobe_exit(void)
-{
-}
-
-static bool ki_kprobe_backend;
-#endif
 
 int ki_hook_init(void)
 {
@@ -344,20 +227,13 @@ int ki_hook_init(void)
 	}
 
 	ret = ki_tracepoint_init();
-	if (!ret) {
-		ki_tracepoint_backend = true;
-		return 0;
+	if (ret) {
+		pr_err("KI: GKI tracepoint hook unavailable: %d\n", ret);
+		return ret;
 	}
 
-	pr_warn("KI: GKI tracepoint hook unavailable: %d; trying kprobe\n", ret);
-	ret = ki_kprobe_init();
-	if (!ret) {
-		ki_kprobe_backend = true;
-		return 0;
-	}
-
-	pr_err("KI: no GKI automatic hook backend available: %d\n", ret);
-	return ret;
+	ki_tracepoint_backend = true;
+	return 0;
 }
 
 void ki_hook_exit(void)
@@ -367,11 +243,6 @@ void ki_hook_exit(void)
 	if (ki_tracepoint_backend) {
 		ki_tracepoint_exit();
 		ki_tracepoint_backend = false;
-	}
-
-	if (ki_kprobe_backend) {
-		ki_kprobe_exit();
-		ki_kprobe_backend = false;
 	}
 }
 

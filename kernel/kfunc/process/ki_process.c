@@ -16,131 +16,27 @@
 
 #include "ki_process.h"
 
-#if defined(CONFIG_TRACEPOINTS)
-#include <trace/events/sched.h>
-#endif
+#ifdef CONFIG_KI_KPROBEHOOK
+#include <trace/hooks/sched.h>
 
-#define KI_PROCESS_HASH_BITS 8
-
-struct ki_process_record {
-	struct hlist_node node;
-	struct task_struct *task;
-	pid_t pid;
-	pid_t ppid;
-	kuid_t uid;
-	unsigned int state;
-	char comm[TASK_COMM_LEN];
-};
-
-static DEFINE_HASHTABLE(ki_process_table, KI_PROCESS_HASH_BITS);
-static DEFINE_SPINLOCK(ki_process_lock);
-static atomic_t ki_process_count = ATOMIC_INIT(0);
 static bool ki_process_hooks_registered;
 
-static struct ki_process_record *ki_process_find_locked(pid_t pid)
-{
-	struct ki_process_record *record;
-
-	hash_for_each_possible(ki_process_table, record, node, (unsigned int)pid) {
-		if (record->pid == pid)
-			return record;
-	}
-	return NULL;
-}
-
-static void ki_process_update_record(struct ki_process_record *record,
-				     struct task_struct *task)
-{
-	record->ppid = task_ppid_nr(task);
-	record->uid = task_uid(task);
-	record->state = task_state_to_char(task);
-	get_task_comm(record->comm, task);
-}
-
-static int ki_process_add(struct task_struct *task)
-{
-	struct ki_process_record *record;
-	unsigned long flags;
-	pid_t pid;
-
-	if (!task)
-		return -EINVAL;
-
-	pid = task_pid_nr(task);
-	if (pid <= 0)
-		return -EINVAL;
-
-	spin_lock_irqsave(&ki_process_lock, flags);
-	record = ki_process_find_locked(pid);
-	if (record) {
-		ki_process_update_record(record, task);
-		spin_unlock_irqrestore(&ki_process_lock, flags);
-		return 0;
-	}
-	spin_unlock_irqrestore(&ki_process_lock, flags);
-
-	record = kzalloc(sizeof(*record), GFP_ATOMIC);
-	if (!record)
-		return -ENOMEM;
-
-	get_task_struct(task);
-	record->task = task;
-	record->pid = pid;
-	ki_process_update_record(record, task);
-
-	spin_lock_irqsave(&ki_process_lock, flags);
-	if (ki_process_find_locked(pid)) {
-		spin_unlock_irqrestore(&ki_process_lock, flags);
-		put_task_struct(record->task);
-		kfree(record);
-		return 0;
-	}
-	hash_add(ki_process_table, &record->node, (unsigned int)pid);
-	atomic_inc(&ki_process_count);
-	spin_unlock_irqrestore(&ki_process_lock, flags);
-
-	return 0;
-}
-
-static void ki_process_remove(pid_t pid)
-{
-	struct ki_process_record *record;
-	unsigned long flags;
-
-	spin_lock_irqsave(&ki_process_lock, flags);
-	record = ki_process_find_locked(pid);
-	if (!record) {
-		spin_unlock_irqrestore(&ki_process_lock, flags);
-		return;
-	}
-	hash_del(&record->node);
-	atomic_dec(&ki_process_count);
-	spin_unlock_irqrestore(&ki_process_lock, flags);
-
-	put_task_struct(record->task);
-	kfree(record);
-}
-
-#if defined(CONFIG_TRACEPOINTS)
-
-static void ki_process_trace_fork(void *unused,
-				  struct task_struct *parent,
-				  struct task_struct *child)
+static void ki_process_gki_dup_task(void *unused,
+				    struct task_struct *tsk,
+				    struct task_struct *orig)
 {
 	(void)unused;
-	(void)parent;
-	ki_process_add(child);
+	(void)orig;
+	ki_process_add(tsk);
 }
 
-static void ki_process_trace_exec(void *unused, struct task_struct *task,
-				  pid_t old_pid, struct linux_binprm *bprm)
+static void ki_process_gki_set_task_comm(void *unused,
+					 struct task_struct *task)
 {
 	struct ki_process_record *record;
 	unsigned long flags;
 
 	(void)unused;
-	(void)old_pid;
-	(void)bprm;
 
 	spin_lock_irqsave(&ki_process_lock, flags);
 	record = ki_process_find_locked(task_pid_nr(task));
@@ -149,7 +45,7 @@ static void ki_process_trace_exec(void *unused, struct task_struct *task,
 	spin_unlock_irqrestore(&ki_process_lock, flags);
 }
 
-static void ki_process_trace_exit(void *unused, struct task_struct *task)
+static void ki_process_gki_free_task(void *unused, struct task_struct *task)
 {
 	(void)unused;
 	ki_process_remove(task_pid_nr(task));
@@ -160,17 +56,20 @@ int ki_process_hook_init(void)
 	struct task_struct *task;
 	int ret;
 
-	ret = register_trace_sched_process_fork(ki_process_trace_fork, NULL);
+	ret = register_trace_android_vh_dup_task_struct(
+		ki_process_gki_dup_task, NULL);
 	if (ret)
 		return ret;
 
-	ret = register_trace_sched_process_exec(ki_process_trace_exec, NULL);
+	ret = register_trace_android_vh_set_task_comm(
+		ki_process_gki_set_task_comm, NULL);
 	if (ret)
-		goto err_fork;
+		goto err_dup;
 
-	ret = register_trace_sched_process_exit(ki_process_trace_exit, NULL);
+	ret = register_trace_android_vh_free_task(
+		ki_process_gki_free_task, NULL);
 	if (ret)
-		goto err_exec;
+		goto err_comm;
 
 	ki_process_hooks_registered = true;
 
@@ -179,56 +78,81 @@ int ki_process_hook_init(void)
 		ki_process_add(task);
 	read_unlock(&tasklist_lock);
 
-	pr_info("KI: process lifecycle tracepoint hooks enabled\n");
+	pr_info("KI: GKI process vendor hooks enabled\n");
 	return 0;
 
-err_exec:
-	unregister_trace_sched_process_exec(ki_process_trace_exec, NULL);
-err_fork:
-	unregister_trace_sched_process_fork(ki_process_trace_fork, NULL);
+err_comm:
+	unregister_trace_android_vh_set_task_comm(
+		ki_process_gki_set_task_comm, NULL);
+err_dup:
+	unregister_trace_android_vh_dup_task_struct(
+		ki_process_gki_dup_task, NULL);
 	tracepoint_synchronize_unregister();
 	return ret;
 }
 
 void ki_process_hook_exit(void)
 {
-	struct ki_process_record *record;
-	struct hlist_node *tmp;
-	unsigned long flags;
-	int bkt;
-
 	if (ki_process_hooks_registered) {
-		unregister_trace_sched_process_exit(ki_process_trace_exit, NULL);
-		unregister_trace_sched_process_exec(ki_process_trace_exec, NULL);
-		unregister_trace_sched_process_fork(ki_process_trace_fork, NULL);
+		unregister_trace_android_vh_free_task(
+			ki_process_gki_free_task, NULL);
+		unregister_trace_android_vh_set_task_comm(
+			ki_process_gki_set_task_comm, NULL);
+		unregister_trace_android_vh_dup_task_struct(
+			ki_process_gki_dup_task, NULL);
 		tracepoint_synchronize_unregister();
 		ki_process_hooks_registered = false;
 	}
-
-	spin_lock_irqsave(&ki_process_lock, flags);
-	hash_for_each_safe(ki_process_table, bkt, tmp, record, node) {
-		hash_del(&record->node);
-		atomic_dec(&ki_process_count);
-		spin_unlock_irqrestore(&ki_process_lock, flags);
-		put_task_struct(record->task);
-		kfree(record);
-		spin_lock_irqsave(&ki_process_lock, flags);
-	}
-	spin_unlock_irqrestore(&ki_process_lock, flags);
+	ki_process_clear();
 }
 
 #else
 
 int ki_process_hook_init(void)
 {
-	return -EOPNOTSUPP;
+	struct task_struct *task;
+
+	read_lock(&tasklist_lock);
+	for_each_process(task)
+		ki_process_add(task);
+	read_unlock(&tasklist_lock);
+
+	pr_info("KI: manual process hook mode selected\n");
+	return 0;
 }
 
 void ki_process_hook_exit(void)
 {
+	ki_process_clear();
 }
 
 #endif
+
+void ki_process_manual_fork(struct task_struct *task)
+{
+	ki_process_add(task);
+}
+
+void ki_process_manual_exec(struct task_struct *task)
+{
+	struct ki_process_record *record;
+	unsigned long flags;
+
+	if (!task)
+		return;
+
+	spin_lock_irqsave(&ki_process_lock, flags);
+	record = ki_process_find_locked(task_pid_nr(task));
+	if (record)
+		ki_process_update_record(record, task);
+	spin_unlock_irqrestore(&ki_process_lock, flags);
+}
+
+void ki_process_manual_exit(struct task_struct *task)
+{
+	if (task)
+		ki_process_remove(task_pid_nr(task));
+}
 
 static int ki_process_check_access(void)
 {
@@ -249,18 +173,6 @@ static struct task_struct *ki_process_get_task(pid_t pid)
 	rcu_read_unlock();
 
 	return task;
-}
-
-static void ki_process_fill_entry(struct task_struct *task,
-					  struct ki_ioc_process_entry *entry,
-					  unsigned int index)
-{
-	entry->index = index;
-	entry->pid = task_pid_vnr(task);
-	entry->ppid = task_ppid_vnr(task);
-	entry->uid = from_kuid_munged(current_user_ns(), task_uid(task));
-	entry->state = task_state_to_char(task);
-	get_task_comm(entry->comm, task);
 }
 
 int ki_process_list(struct ki_ioc_process_entry *entry)
@@ -308,10 +220,10 @@ int ki_process_info(struct ki_ioc_process_info *info)
 
 	memset(info, 0, sizeof(*info));
 	info->pid = task_pid_vnr(task);
-	info->ppid = task_ppid_vnr(task);
+	info->ppid = task_ppid_nr(task);
 	info->tgid = task_tgid_vnr(task);
 	info->uid = from_kuid_munged(current_user_ns(), task_uid(task));
-	info->gid = from_kgid_munged(current_user_ns(), task_gid(task));
+	info->gid = from_kgid_munged(current_user_ns(), __task_cred(task)->gid);
 	info->state = task_state_to_char(task);
 	info->flags = task->flags;
 	info->start_time = task->start_time;
