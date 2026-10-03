@@ -62,18 +62,28 @@ jobs:
       - name: Prepare external module build
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=aarch64-linux-gnu-gcc LD=aarch64-linux-gnu-ld \
-            AS=aarch64-linux-gnu-as AR=aarch64-linux-gnu-ar NM=aarch64-linux-gnu-nm \
-            STRIP=aarch64-linux-gnu-strip OBJCOPY=aarch64-linux-gnu-objcopy \
-            OBJDUMP=aarch64-linux-gnu-objdump HOSTCFLAGS=-fcommon modules_prepare
+          make -j2 \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            HOSTCFLAGS=-fcommon \
+            modules_prepare
 
       - name: Build Kernel Informater
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=aarch64-linux-gnu-gcc LD=aarch64-linux-gnu-ld \
-            AS=aarch64-linux-gnu-as AR=aarch64-linux-gnu-ar NM=aarch64-linux-gnu-nm \
-            STRIP=aarch64-linux-gnu-strip OBJCOPY=aarch64-linux-gnu-objcopy \
-            OBJDUMP=aarch64-linux-gnu-objdump HOSTCFLAGS=-fcommon M=kernel/Kernel_Informater modules
+          make -j2 \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            HOSTCFLAGS=-fcommon \
+            M=kernel/Kernel_Informater \
+            modules
           test -f kernel/Kernel_Informater/ki.ko
           file kernel/Kernel_Informater/ki.ko
 
+      - name: Upload LKM
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-4-19-manual-hook
+          path: kernel-tree/kernel/Kernel_Informater/ki.ko
