@@ -4,33 +4,29 @@ on:
   workflow_dispatch:
   push:
     branches: ["main"]
-    paths:
-      - "kernel/**"
-      - "uapi/**"
-      - "userspace/kicmd/**"
-      - ".github/workflows/test-5.4-manual.yml"
   pull_request:
     branches: ["main"]
-    paths:
-      - "kernel/**"
-      - "uapi/**"
-      - "userspace/kicmd/**"
-      - ".github/workflows/test-5.4-manual.yml"
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    name: Build LKM · Android 5.4 GKI 1.0 · Manual Hook
+  build:
+    name: LKM · Android 12 5.4 GKI 1.0 · Manual Hook
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Kernel Informater
         uses: actions/checkout@v4
+
       - name: Checkout Android Common
-        run: git clone --depth=1 --branch android12-5.4 https://android.googlesource.com/kernel/common kernel-tree
+        run: |
+          git clone --depth=1 --branch android12-5.4 https://android.googlesource.com/kernel/common kernel-tree
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 \
-            clang-14 lld-14 binutils-aarch64-linux-gnu
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 clang-14 lld-14 binutils-aarch64-linux-gnu
+
       - name: Integrate Kernel Informater
         run: |
           set -eux
@@ -38,7 +34,6 @@ jobs:
           cp -a kernel/. kernel-tree/kernel/Kernel_Informater/
           printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' >> kernel-tree/kernel/Kconfig
           printf '\nobj-$(CONFIG_KI) += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
-          sh kernel-tree/kernel/Kernel_Informater/integrate.sh kernel-tree
 
       - name: Configure Manual Hook
         working-directory: kernel-tree
@@ -46,23 +41,28 @@ jobs:
           make ARCH=arm64 defconfig
           scripts/config --enable CONFIG_MODULES
           scripts/config --set-val CONFIG_KI m
-          scripts/config --disable CONFIG_KGDB
           scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
+          scripts/config --disable CONFIG_KGDB
           make ARCH=arm64 olddefconfig
-          echo "=== KI config ==="
-          grep -E '^(CONFIG_KI|CONFIG_MODULES|CONFIG_KI_TRACEPOINT_HOOK)=' .config || true
-          grep -q '^CONFIG_KI=m
+          echo "=== Effective KI configuration ==="
+          grep -E '^(CONFIG_KI|CONFIG_MODULES|CONFIG_KI_TRACEPOINT_HOOK|CONFIG_TRACEPOINTS)=' .config || true
+          grep -q '^CONFIG_KI=m$' .config
           grep -q '^CONFIG_MODULES=y$' .config
+
+      - name: Verify Manual Hook mode
+        working-directory: kernel-tree
+        run: |
+          test "$(sed -n 's/^VERSION = //p' Makefile)" -ge 3
           ! grep -q '^CONFIG_KI_TRACEPOINT_HOOK=y$' .config
 
-      - name: Prepare LKM build
+      - name: Prepare external module build
         working-directory: kernel-tree
         run: |
           make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
             CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
             HOSTCFLAGS=-fcommon LLVM_IAS=1 modules_prepare
 
-      - name: Build Kernel Informater LKM
+      - name: Build Kernel Informater
         working-directory: kernel-tree
         run: |
           make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
@@ -70,32 +70,9 @@ jobs:
             HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
           test -f kernel/Kernel_Informater/ki.ko
           file kernel/Kernel_Informater/ki.ko
+
       - name: Upload LKM
         uses: actions/upload-artifact@v4
         with:
-          name: android-5-4-gki-1-0-manual-hook-lkm
-          path: kernel-tree/kernel/Kernel_Informater/ki.ko
- .config
-          grep -q '^CONFIG_MODULES=y$' .config
-          ! grep -q '^CONFIG_KI_TRACEPOINT_HOOK=y$' .config
-
-      - name: Prepare LKM build
-        working-directory: kernel-tree
-        run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
-            CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
-            HOSTCFLAGS=-fcommon LLVM_IAS=1 modules_prepare
-
-      - name: Build Kernel Informater LKM
-        working-directory: kernel-tree
-        run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
-            CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
-            HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
-          test -f kernel/Kernel_Informater/ki.ko
-          file kernel/Kernel_Informater/ki.ko
-      - name: Upload LKM
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-5-4-gki-1-0-manual-hook-lkm
+          name: android-5-4-gki-1-0-manual-hook
           path: kernel-tree/kernel/Kernel_Informater/ki.ko
