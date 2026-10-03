@@ -24,11 +24,11 @@ config KI_BOOTAPPLY
 
 config KI_TRACEPOINT_HOOK
 	bool "Tracepoint Syscall Redirect as GKI Hook"
-	default n # KI_TRACEPOINT_HOOK_DEFAULT
-		help
-          The standard, upstream method for modern kernels.
-          Utilizes GKI tracepoints for syscall redirection.
-          The implementation is only for devices with GKI2 support.
-          Support for kernel 5.10+
+	default n
+	help
+	  The standard, upstream method for modern kernels.
+	  Utilizes GKI tracepoints for syscall redirection.
+	  The implementation is only for devices with GKI2 support.
+	  Support for kernel 5.10+
 
 endif
