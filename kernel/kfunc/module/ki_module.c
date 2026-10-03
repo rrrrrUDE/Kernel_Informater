@@ -45,7 +45,7 @@ int ki_module_list_line(unsigned int index, char *line, size_t size)
 	char *buf, *cursor, *next;
 	loff_t pos = 0;
 	ssize_t len;
-	unsigned int current = 0;
+	unsigned int line_index = 0;
 	if (!line || !size) return -EINVAL;
 	file = filp_open("/proc/modules", O_RDONLY | O_CLOEXEC, 0);
 	if (IS_ERR(file)) return PTR_ERR(file);
@@ -59,7 +59,7 @@ int ki_module_list_line(unsigned int index, char *line, size_t size)
 	while (cursor && *cursor) {
 		next = strchr(cursor, '\n');
 		if (next) *next++ = '\0';
-		if (current++ == index) {
+		if (line_index++ == index) {
 			strscpy(line, cursor, size);
 			kfree(buf);
 			return 0;
