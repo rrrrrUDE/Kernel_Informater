@@ -1,0 +1,48 @@
+name: Test Manual Hook Android 5.4 GKI 1.0 LKM build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["filesystem-kfunc"]
+    paths: ["kernel/**", "uapi/**", "userspace/kicmd/**", ".github/workflows/test-5.4-manual.yml"]
+  pull_request:
+    branches: ["main"]
+    paths: ["kernel/**", "uapi/**", "userspace/kicmd/**", ".github/workflows/test-5.4-manual.yml"]
+
+jobs:
+  test:
+    name: Test Manual Hook Android 5.4 GKI 1.0 LKM build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout Android kernel
+        run: git clone --depth=1 --branch android12-5.4 https://android.googlesource.com/kernel/common kernel-tree
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 clang-14 lld-14 binutils-aarch64-linux-gnu
+      - name: Integrate Kernel Informater
+        run: |
+          mkdir -p kernel-tree/kernel/Kernel_Informater
+          cp -a kernel/. kernel-tree/kernel/Kernel_Informater/
+          printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' >> kernel-tree/kernel/Kconfig
+          printf '\nobj-$(CONFIG_KI) += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
+          sh kernel-tree/kernel/Kernel_Informater/integrate.sh kernel-tree
+      - name: Configure
+        working-directory: kernel-tree
+        run: |
+          make ARCH=arm64 defconfig
+          scripts/config --module CONFIG_KI
+          scripts/config --enable CONFIG_MODULES
+          scripts/config --disable CONFIG_KGDB
+          scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
+          make ARCH=arm64 olddefconfig
+          grep -E '^(CONFIG_KI=|CONFIG_KI_TRACEPOINT_HOOK=|CONFIG_MODULES=|CONFIG_TRACEPOINTS=|CONFIG_HAVE_SYSCALL_TRACEPOINTS=)' .config || true
+      - name: Prepare kernel for external module
+        working-directory: kernel-tree
+        run: |
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- HOSTCFLAGS=-fcommon LLVM_IAS=1 modules_prepare
+      - name: Build Kernel Informater module
+        working-directory: kernel-tree
+        run: |
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
+          test -f kernel/Kernel_Informater/ki.ko
+          file kernel/Kernel_Informater/ki.ko
