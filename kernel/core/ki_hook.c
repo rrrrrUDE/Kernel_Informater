@@ -12,6 +12,7 @@
 
 #include "ki.h"
 #include "ki_uname.h"
+#include "ki_process.h"
 
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_HAVE_SYSCALL_TRACEPOINTS)
 #include <trace/events/syscalls.h>
@@ -330,6 +331,13 @@ int ki_hook_init(void)
 {
 	int ret;
 
+	ret = ki_process_hook_init();
+	if (ret) {
+		pr_err("KI: process lifecycle hook initialization failed: %d\n",
+		       ret);
+		return ret;
+	}
+
 	if (!IS_ENABLED(CONFIG_KI_KPROBEHOOK)) {
 		pr_info("KI: manual hook mode selected\n");
 		return 0;
@@ -354,6 +362,8 @@ int ki_hook_init(void)
 
 void ki_hook_exit(void)
 {
+	ki_process_hook_exit();
+
 	if (ki_tracepoint_backend) {
 		ki_tracepoint_exit();
 		ki_tracepoint_backend = false;
@@ -369,12 +379,22 @@ void ki_hook_exit(void)
 
 int ki_hook_init(void)
 {
+	int ret;
+
+	ret = ki_process_hook_init();
+	if (ret) {
+		pr_err("KI: process lifecycle hook initialization failed: %d\n",
+		       ret);
+		return ret;
+	}
+
 	pr_info("KI: manual hook mode selected\n");
 	return 0;
 }
 
 void ki_hook_exit(void)
 {
+	ki_process_hook_exit();
 }
 
 #endif /* CONFIG_KI_KPROBEHOOK */

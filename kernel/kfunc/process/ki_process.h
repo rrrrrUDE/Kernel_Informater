@@ -6,6 +6,8 @@
 
 extern struct ki_kfunc ki_process_kfunc;
 
+int ki_process_hook_init(void);
+void ki_process_hook_exit(void);
 int ki_process_list(struct ki_ioc_process_entry *entry);
 int ki_process_info(struct ki_ioc_process_info *info);
 int ki_process_read_memory(struct ki_ioc_process_read *read);
