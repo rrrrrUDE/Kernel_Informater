@@ -16,9 +16,9 @@
 #include "kicmd_def.h"
 
 static int ki_ioctl(int fd, unsigned long request, void *arg);
-static int open_ki_checked(void);
 static int ioctl_value(unsigned long request,
 			       const char *kfunc, const char *key, const char *value);
+static int open_ki_checked(void);
 static int list_kernel_lines(int fd, unsigned int type)
 {
 	struct ki_ioc_list_line line;

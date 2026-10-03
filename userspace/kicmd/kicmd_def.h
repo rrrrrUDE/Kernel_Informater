@@ -3,7 +3,7 @@
 
 #include <limits.h>
 
-#include "ki_uapi.h"
+#include "../../uapi/ki_uapi.h"
 
 #define KICMD_NAME "kicmd"
 
