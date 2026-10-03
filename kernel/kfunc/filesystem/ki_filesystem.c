@@ -43,7 +43,7 @@ static int ki_filesystem_config_set(const char *key, const char *value)
 		return -ENAMETOOLONG;
 
 	mutex_lock(&ki_fs_lock);
-	strscpy(ki_fs_paths[index], value, sizeof(ki_fs_paths[index]));
+	ki_fs_strscpy(ki_fs_paths[index], value, sizeof(ki_fs_paths[index]));
 	mutex_unlock(&ki_fs_lock);
 	return 0;
 }
@@ -186,7 +186,7 @@ static int ki_filesystem_get_real(const char *key, char *value, size_t size)
 			return -EINVAL;
 
 		mutex_lock(&ki_fs_lock);
-		strscpy(value, ki_fs_paths[i], size);
+		ki_fs_strscpy(value, ki_fs_paths[i], size);
 		mutex_unlock(&ki_fs_lock);
 		return 0;
 	}
@@ -201,7 +201,7 @@ static int ki_filesystem_get_real_key(unsigned int index,
 		return -EINVAL;
 
 	if (index == 0) {
-		strscpy(key, "count", size);
+		ki_fs_strscpy(key, "count", size);
 		return 0;
 	}
 
@@ -252,7 +252,7 @@ int ki_filesystem_list_line(unsigned int index, char *line, size_t size)
 			*next++ = '\0';
 
 		if (current++ == index) {
-			strscpy(line, cursor, size);
+			ki_fs_strscpy(line, cursor, size);
 			kfree(buf);
 			return 0;
 		}
