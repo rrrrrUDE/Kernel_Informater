@@ -7,13 +7,13 @@ on:
     branches: ["main"]
 
 jobs:
-  build-kernel-4-19:
+  build-kernel-5-10:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Kernel Informater
         uses: actions/checkout@v4
 
-      - name: Checkout Android common 4.19
+      - name: Checkout Android common 5.10
         run: |
           git clone --depth 1 --branch android-5.10 \
             https://android.googlesource.com/kernel/common kernel-tree
@@ -29,7 +29,7 @@ jobs:
           mkdir -p kernel-tree/kernel/Kernel_Informater
           cp -a kernel/. kernel-tree/kernel/Kernel_Informater/
           printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' >> kernel-tree/kernel/Kconfig
-          printf '\nobj-y += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
+          printf '\nobj-m += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
           sh kernel-tree/kernel/Kernel_Informater/integrate.sh kernel-tree
 
       - name: Configure
@@ -44,4 +44,4 @@ jobs:
       - name: Compile Kernel Informater
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 CONFIG_KI=m kernel/Kernel_Informater/
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
