@@ -7,7 +7,6 @@
 #include <linux/string.h>
 #include "ki_kfunc.h"
 #include "ki_fs_compat.h"
-#include "ki_fs_compat.h"
 #include "ki_module.h"
 
 #define KI_MODULE_MAX_ARGS 16

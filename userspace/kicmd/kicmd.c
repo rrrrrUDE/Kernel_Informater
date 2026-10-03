@@ -16,11 +16,12 @@
 
 static int ki_ioctl(int fd, unsigned long request, void *arg);
 static int open_ki_checked(void);
+static int ioctl_value(unsigned long request,
+			       const char *kfunc, const char *key, const char *value);
 static int list_kernel_lines(int fd, unsigned int type)
 {
 	struct ki_ioc_list_line line;
 	unsigned int index = 0;
-	int ret;
 
 	for (;;) {
 		memset(&line, 0, sizeof(line));
@@ -699,23 +700,6 @@ static int cmd_config(int argc, char **argv)
 	}
 
 
-
-	if (!strcmp(argv[1], "mount")) {
-		if (argc == 4 && !strcmp(argv[2], KICMD_SUB_DEL)) {
-			ret = cfg_unset("mount", argv[3]);
-			if (ret)
-				return fprintf(stderr, "%s: remove mount config: %s\n",
-					KICMD_NAME, strerror(-ret)), 1;
-			ret = cfg_sync();
-			if (ret)
-				return ret;
-			debug_log("config mount del %s", argv[3]);
-			return 0;
-		}
-		return fprintf(stderr, "%s: usage: config mount del <key>\n",
-			KICMD_NAME), 1;
-	}
-
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
 		if (argc != 5)
 			return fprintf(stderr, "%s: usage: config set <kfunc> <key> <value>\n", KICMD_NAME), 1;
@@ -768,7 +752,10 @@ static int cmd_config(int argc, char **argv)
 				KICMD_NAME), 1;
 
 		kfunc = argv[2];
-		key = argc == 4 ? argv[3] : NULL;
+		key = (argc == 4 && argv[3] && *argv[3]) ? argv[3] : NULL;
+		if (key && !valid_token(key))
+			return fprintf(stderr,
+				"%s: invalid config key\n", KICMD_NAME), 1;
 		{
 			int fd = open_ki_checked();
 			if (fd < 0)
