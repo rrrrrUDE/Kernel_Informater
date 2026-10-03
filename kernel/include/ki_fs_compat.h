@@ -6,12 +6,12 @@
 #include <linux/version.h>
 
 static inline ssize_t ki_kernel_read(struct file *file, void *buf,
-					 size_t count, loff_t *pos)
+				     size_t count, loff_t *pos)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
-	return kernel_read(file, *pos, buf, count);
-#else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	return kernel_read(file, buf, count, pos);
+#else
+	return kernel_read(file, *pos, buf, count);
 #endif
 }
 
