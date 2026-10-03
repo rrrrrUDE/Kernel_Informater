@@ -1,9 +1,9 @@
-name: Test Manual Hook Android 4.19 LKM build
+name: Build Kernel · Android 4.19 · Manual Hook
 
 on:
   workflow_dispatch:
   push:
-    branches: ["filesystem-kfunc"]
+    branches: ["main"]
     paths: ["kernel/**", "uapi/**", "userspace/kicmd/**", ".github/workflows/test-4.19-manual.yml"]
   pull_request:
     branches: ["main"]
@@ -35,7 +35,7 @@ jobs:
           scripts/config --disable CONFIG_KGDB
           scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
           make ARCH=arm64 olddefconfig
-          grep -q '^CONFIG_KI=m -E '^(CONFIG_KI=|CONFIG_KI_TRACEPOINT_HOOK=|CONFIG_MODULES=|CONFIG_TRACEPOINTS=|CONFIG_HAVE_SYSCALL_TRACEPOINTS=)' .config || true
+          grep -q '^CONFIG_KI=m          grep -q '^CONFIG_KI=m
       - name: Prepare kernel for external module
         working-directory: kernel-tree
         run: |
@@ -46,8 +46,10 @@ jobs:
           make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
           test -f kernel/Kernel_Informater/ki.ko
           file kernel/Kernel_Informater/ki.ko
+
  .config
-          grep -E '^(CONFIG_KI=|CONFIG_KI_TRACEPOINT_HOOK=|CONFIG_MODULES=|CONFIG_TRACEPOINTS=|CONFIG_HAVE_SYSCALL_TRACEPOINTS=)' .config || true
+          grep -q '^CONFIG_MODULES=y' .config
+          grep -q '^CONFIG_KI=m
       - name: Prepare kernel for external module
         working-directory: kernel-tree
         run: |
@@ -58,3 +60,4 @@ jobs:
           make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
           test -f kernel/Kernel_Informater/ki.ko
           file kernel/Kernel_Informater/ki.ko
+
