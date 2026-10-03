@@ -30,8 +30,8 @@ CONFIG_KI_KPROBEHOOK=n
 ## Hook方法
 ### 手动 Hook
 通过在内核里集成钩子实现Hook（适用于 3.18-6.18+ 内核）
-### Kprobe Hook
-使用Kprobe实现Hook（⚠️仅适用于 GKI 2.0+ 内核，GKI 1.0 或 Non-GKI请勿使用该钩子）
+### Tracepoint Syscall Redirect
+使用Tracepoint Syscall Redirect实现Hook（⚠️仅适用于 GKI 2.0+ 内核，GKI 1.0 或 Non-GKI请勿使用该钩子）
 
 
 ## Kernel Informater用户目录
@@ -51,6 +51,6 @@ CONFIG_KI_KPROBEHOOK=n
 
 ## 特别感谢
  * [KernelSU](https://github.com/tiann/KernelSU): 提供部分思路与参考。
- * [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): 钩子判断与setup.sh参考。
+ * [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): 钩子判断与setup.sh以及部分代码参考。
 
 KI 是一个独立项目，具体架构与实现会根据自身需求单独开发。感谢 Android 内核开源社区提供的大量工程实践与开源参考。
