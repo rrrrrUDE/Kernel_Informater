@@ -50,7 +50,39 @@ jobs:
           scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
           scripts/config --disable CONFIG_KGDB
           make ARCH=arm64 olddefconfig
-          grep -q '^CONFIG_KI=m$' .config
+          echo "=== KI config ==="
+          grep -E '^(CONFIG_KI|CONFIG_MODULES|CONFIG_KI_TRACEPOINT_HOOK)=' .config || true
+          grep -q '^CONFIG_KI=m
+          grep -q '^CONFIG_MODULES=y$' .config
+
+      - name: Verify Manual Hook mode
+        working-directory: kernel-tree
+        run: |
+          test "$(sed -n 's/^VERSION = //p' Makefile)" -ge 5
+          test "$(sed -n 's/^PATCHLEVEL = //p' Makefile)" -ge 10
+          ! grep -q '^CONFIG_KI_TRACEPOINT_HOOK=y$' .config
+
+      - name: Prepare LKM build
+        working-directory: kernel-tree
+        run: |
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
+            CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
+            HOSTCFLAGS=-fcommon LLVM_IAS=1 modules_prepare
+
+      - name: Build Kernel Informater LKM
+        working-directory: kernel-tree
+        run: |
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
+            CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
+            HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
+          test -f kernel/Kernel_Informater/ki.ko
+          file kernel/Kernel_Informater/ki.ko
+      - name: Upload LKM
+        uses: actions/upload-artifact@v4
+        with:
+          name: ki-manual-hook-android12-5.10
+          path: kernel-tree/kernel/Kernel_Informater/ki.ko
+ .config
           grep -q '^CONFIG_MODULES=y$' .config
 
       - name: Verify Manual Hook mode
