@@ -19,23 +19,19 @@ on:
 
 jobs:
   test-manual-hook-lkm:
-    name: Test Manual Hook LKM · Android 12-5.10
+    name: Build LKM · Android 12-5.10 · Manual Hook
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Kernel Informater
         uses: actions/checkout@v4
-
       - name: Checkout Android Common
         run: |
-          git clone --depth=1 --branch android12-5.10 \
-            https://android.googlesource.com/kernel/common kernel-tree
-
+          git clone --depth=1 --branch android12-5.10 https://android.googlesource.com/kernel/common kernel-tree
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 \
             clang-14 lld-14 binutils-aarch64-linux-gnu
-
       - name: Integrate Kernel Informater
         run: |
           set -eux
@@ -45,7 +41,7 @@ jobs:
           printf '\nobj-$(CONFIG_KI) += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
           sh kernel-tree/kernel/Kernel_Informater/integrate.sh kernel-tree
 
-      - name: Configure manual hook mode
+      - name: Configure Manual Hook
         working-directory: kernel-tree
         run: |
           make ARCH=arm64 defconfig
@@ -54,7 +50,15 @@ jobs:
           scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
           scripts/config --disable CONFIG_KGDB
           make ARCH=arm64 olddefconfig
-          grep -q '^CONFIG_KI=m          grep -q '^CONFIG_KI=m
+          grep -q '^CONFIG_KI=m$' .config
+          grep -q '^CONFIG_MODULES=y$' .config
+
+      - name: Verify Manual Hook mode
+        working-directory: kernel-tree
+        run: |
+          test "$(sed -n 's/^VERSION = //p' Makefile)" -ge 5
+          test "$(sed -n 's/^PATCHLEVEL = //p' Makefile)" -ge 10
+          ! grep -q '^CONFIG_KI_TRACEPOINT_HOOK=y$' .config
 
       - name: Prepare LKM build
         working-directory: kernel-tree
@@ -71,42 +75,6 @@ jobs:
             HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
           test -f kernel/Kernel_Informater/ki.ko
           file kernel/Kernel_Informater/ki.ko
-
-      - name: Verify manual hook deployment
-        run: |
-          ! grep -R "KI_TRACEPOINT_HOOK" kernel-tree/kernel/Kernel_Informater/integrate.sh
-          grep -R "KI manual" kernel-tree/kernel/Kernel_Informater || true
-
-      - name: Upload LKM
-        uses: actions/upload-artifact@v4
-        with:
-          name: ki-manual-hook-android12-5.10
-          path: kernel-tree/kernel/Kernel_Informater/ki.ko
- .config
-          grep -q '^CONFIG_MODULES=y' .config
-          grep -q '^CONFIG_KI=m
-
-      - name: Prepare LKM build
-        working-directory: kernel-tree
-        run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
-            CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
-            HOSTCFLAGS=-fcommon LLVM_IAS=1 modules_prepare
-
-      - name: Build Kernel Informater LKM
-        working-directory: kernel-tree
-        run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
-            CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
-            HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
-          test -f kernel/Kernel_Informater/ki.ko
-          file kernel/Kernel_Informater/ki.ko
-
-      - name: Verify manual hook deployment
-        run: |
-          ! grep -R "KI_TRACEPOINT_HOOK" kernel-tree/kernel/Kernel_Informater/integrate.sh
-          grep -R "KI manual" kernel-tree/kernel/Kernel_Informater || true
-
       - name: Upload LKM
         uses: actions/upload-artifact@v4
         with:
