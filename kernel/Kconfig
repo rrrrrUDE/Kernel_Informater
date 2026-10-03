@@ -1,5 +1,5 @@
 menuconfig KI
-	bool "Kernel Informater"
+	tristate "Kernel Informater"
 	default n
 	help
 	  Kernel Informater provides kernel information management,
