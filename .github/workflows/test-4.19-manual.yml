@@ -1,4 +1,4 @@
-name: Build Kernel · Android 4.19 · Manual Hook
+name: Test Build Kernel 4.19 Manual Hook
 
 on:
   workflow_dispatch:
@@ -77,7 +77,6 @@ jobs:
           test -f kernel/Kernel_Informater/ki.ko
           file kernel/Kernel_Informater/ki.ko
 
-      - name: Upload LKM
         uses: actions/upload-artifact@v4
         with:
           name: android-4-19-manual-hook
