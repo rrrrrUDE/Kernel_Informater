@@ -103,7 +103,7 @@ static int filesystem_func(int argc, char **argv)
 	int fd;
 	struct ki_ioc_real real;
 
-	if (argc != 2 || strcmp(argv[1], "stat"))
+	if (argc != 3 || strcmp(argv[1], "stat"))
 		return -EINVAL;
 
 	if (strlen(argv[2]) + 5 >= KI_UAPI_KEY_MAX)
