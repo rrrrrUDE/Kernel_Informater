@@ -15,7 +15,7 @@ jobs:
 
       - name: Checkout Android common 4.19
         run: |
-          git clone --depth 1 --branch android-4.19-stable \
+          git clone --depth 1 --branch experimental/android-4.19 \
             https://android.googlesource.com/kernel/common kernel-tree
 
       - name: Install build dependencies
