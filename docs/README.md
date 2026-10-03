@@ -16,7 +16,8 @@ Kernel Informater（KI）是一个面向 Android 的内核管理工具，通过�
 CONFIG_KI：启用Kernel Informater
 CONFIG_KI_DEBUG:开启调试模式
 CONFIG_KI_BOOTAPPLY：开机时由内核读取并应用持久化配置
-CONFIG_KI_KPROBEHOOK：使用Kprobe来Hook(GKI Only ,关闭后会使用手动钩子来Hook）
+
+CONFIG_KI_TRACEPOINT_HOOK：使用Tracepoint Syscall Redirect来Hook(GKI Only ,关闭后会使用手动钩子来Hook）
 
 仓库默认保持自动 Hook 关闭。最小启用配置为：
 
@@ -24,7 +25,7 @@ CONFIG_KI_KPROBEHOOK：使用Kprobe来Hook(GKI Only ,关闭后会使用手动钩
 CONFIG_KI=y
 CONFIG_KI_DEBUG=n
 CONFIG_KI_BOOTAPPLY=n
-CONFIG_KI_KPROBEHOOK=n
+CONFIG_KI_TRACEPOINT_HOOK=n
 ```
 
 ## Hook方法
