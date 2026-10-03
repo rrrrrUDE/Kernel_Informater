@@ -17,9 +17,9 @@ CONFIG_KI：启用Kernel Informater
 CONFIG_KI_DEBUG:开启调试模式
 CONFIG_KI_BOOTAPPLY：开机时由内核读取并应用持久化配置
 
-CONFIG_KI_TRACEPOINT_HOOK：使用Tracepoint Syscall Redirect来Hook(GKI Only ,关闭后会使用手动钩子来Hook）
+CONFIG_KI_TRACEPOINT_HOOK：使用 Tracepoint Syscall Redirect 作为 GKI 自动 Hook（仅适用于 GKI 2.0 / 5.10+；关闭后使用手动 Hook）
 
-仓库默认保持自动 Hook 关闭。最小启用配置为：
+仓库默认保持 Tracepoint Hook 关闭。最小启用配置为：
 
 ```text
 CONFIG_KI=y
@@ -32,7 +32,7 @@ CONFIG_KI_TRACEPOINT_HOOK=n
 ### 手动 Hook
 通过在内核里集成钩子实现Hook（适用于 3.18-6.18+ 内核）
 ### Tracepoint Syscall Redirect
-使用Tracepoint Syscall Redirect实现Hook（⚠️仅适用于 GKI 2.0+ 内核，GKI 1.0 或 Non-GKI请勿使用该钩子）
+使用 Tracepoint Syscall Redirect 实现自动 Hook（⚠️仅适用于 GKI 2.0 / 5.10+；GKI 1.0、Non-GKI 和 5.4 及以下内核请使用手动 Hook）
 
 
 ## Kernel Informater用户目录

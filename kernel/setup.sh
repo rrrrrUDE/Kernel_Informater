@@ -12,7 +12,7 @@ KI_REPO_URL="${KI_REPO_URL:-https://github.com/rrrrrUDE/Kernel_Informater.git}"
 KI_DST="$GKI_ROOT/kernel/Kernel_Informater"
 KCONFIG="$GKI_ROOT/kernel/Kconfig"
 KMAKE="$GKI_ROOT/kernel/Makefile"
-AUTO_MARKER="$GKI_ROOT/kernel/.ki_tracepoint_hook_default"
+TRACEPOINT_MARKER="$GKI_ROOT/kernel/.ki_tracepoint_hook_default"
 
 KCONFIG_LINE='source "kernel/Kernel_Informater/Kconfig"'
 KMAKE_LINE='obj-$(CONFIG_KI) += Kernel_Informater/'
@@ -28,7 +28,7 @@ Kernel Informater setup
 Usage: $0 [OPTIONS] [<commit-or-tag>]
 
 Options:
-  --tracepoint-hook Enable Tracepoint Syscall Redirect hook.
+  --tracepoint-hook Enable Tracepoint Syscall Redirect hook (GKI 2.0 / 5.10+ only).
   --manual-hook    Use source-level hooks through kernel/integrate.sh.
   --cleanup        Revert KI integration and remove the cloned KI tree.
   -h, --help       Show this help.
@@ -147,7 +147,7 @@ set_hook_default() {
 		die "KI_TRACEPOINT_HOOK default marker not found in $KI_REPO_DIR/kernel/Kconfig"
 	fi
 
-	printf '%s\n' "$value" > "$AUTO_MARKER"
+	printf '%s\n' "$value" > "$TRACEPOINT_MARKER"
 	echo "[+] CONFIG_KI_TRACEPOINT_HOOK default set to $value"
 }
 
@@ -238,7 +238,7 @@ select_hook_mode() {
 
 		case "$answer" in
 			y|Y|yes|YES|Yes)
-				HOOK_MODE=auto
+				HOOK_MODE=tracepoint
 				;;
 			*)
 				HOOK_MODE=manual
@@ -287,24 +287,46 @@ if [ "$MODE" = cleanup ]; then
 fi
 
 select_hook_mode
+
+# Refuse unsupported Tracepoint Syscall Redirect deployment before cloning,
+# linking, or modifying the target kernel tree.
+if [ "$HOOK_MODE" = tracepoint ]; then
+	version=$(kernel_version 2>/dev/null || echo "unknown")
+	major=$(printf "%s" "$version" | cut -d. -f1)
+	minor=$(printf "%s" "$version" | cut -d. -f2)
+	case "$major:$minor" in
+		5:10|5:1[1-9]|5:[2-9][0-9]|[6-9]:*|[1-9][0-9]:*) ;;
+		*) die "Tracepoint Syscall Redirect requires kernel VERSION/PATCHLEVEL >= 5.10 (detected $version). Use --manual-hook." ;;
+	esac
+	echo "[OK] Kernel VERSION/PATCHLEVEL check passed: $version"
+fi
+
 clone_or_update_repo
 link_kernel_tree
 integrate_kernel_tree
 
 case "$HOOK_MODE" in
-	auto)
-		# Switching from manual -> automatic must remove source-level hooks;
-		# otherwise both hook paths could be active at the same time.
+	tracepoint)
+		version=$(kernel_version 2>/dev/null || echo "unknown")
+		major=$(printf "%s" "$version" | cut -d. -f1)
+		minor=$(printf "%s" "$version" | cut -d. -f2)
+		case "$major:$minor" in
+			5:10|5:1[1-9]|5:[2-9][0-9]|[6-9]:*|[1-9][0-9]:*) ;;
+			*) die "Tracepoint Syscall Redirect requires kernel VERSION/PATCHLEVEL >= 5.10 (detected $version). Use --manual-hook." ;;
+		esac
 		remove_manual_hook
-		ensure_auto_default
-		echo "[+] Automatic GKI hook selected."
-		echo "[+] kernel/integrate.sh was not executed."
+		ensure_tracepoint_default
+		echo "[+] Automatic GKI Tracepoint Syscall Redirect hook selected."
+		echo "[+] Kernel VERSION/PATCHLEVEL check passed: $version."
 		;;
 	manual)
 		ensure_manual_default
 		run_manual_hook
 		;;
-	esac
+	*)
+		die "Invalid hook mode: $HOOK_MODE"
+		;;
+esac
 
 echo "[+] Kernel Informater setup complete."
 echo "[!] Enable CONFIG_KI=y in the target kernel configuration."

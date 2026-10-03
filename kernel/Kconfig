@@ -24,7 +24,7 @@ config KI_BOOTAPPLY
 
 config KI_TRACEPOINT_HOOK
 	bool "Tracepoint Syscall Redirect as GKI Hook"
-	default n # KI_AUTO_HOOK_DEFAULT
+	default n # KI_TRACEPOINT_HOOK_DEFAULT
 	depends on ARM64
 	depends on ANDROID
 	depends on TRACEPOINTS
