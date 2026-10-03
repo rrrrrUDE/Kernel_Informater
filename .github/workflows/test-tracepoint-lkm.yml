@@ -50,6 +50,7 @@ jobs:
           make ARCH=arm64 defconfig
           scripts/config --module CONFIG_KI
           scripts/config --enable CONFIG_MODULES
+          scripts/config --enable CONFIG_FTRACE
           scripts/config --enable CONFIG_TRACEPOINTS
           scripts/config --enable CONFIG_KI_TRACEPOINT_HOOK
           scripts/config --disable CONFIG_KGDB
