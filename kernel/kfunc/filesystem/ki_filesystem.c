@@ -2,7 +2,6 @@
 #include <linux/capability.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
-#include <linux/kmod.h>
 #include <linux/kernel.h>
 #include <linux/limits.h>
 #include <linux/slab.h>
@@ -15,76 +14,19 @@
 #include "ki_kfunc.h"
 #include "ki_filesystem.h"
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-extern int path_umount(struct path *path, int flags);
-#else
-extern int ksys_umount(char __user *name, int flags);
-#endif
-
 #define KI_FS_PATH_MAX 256
 #define KI_FS_CONFIG_MAX 16
 #define KI_FS_LIST_MAX (64 * 1024)
 
+/*
+ * Filesystem kfunc is intentionally read/inspection oriented.
+ *
+ * Do not invoke mount(2), umount(2), toybox, or another userspace helper
+ * from the kernel here.  This keeps the kfunc usable in both built-in and
+ * modular integration environments and avoids a shell/userspace dependency.
+ */
 static char ki_fs_paths[KI_FS_CONFIG_MAX][KI_FS_PATH_MAX];
 static DEFINE_MUTEX(ki_fs_lock);
-
-static int ki_filesystem_run(char *const argv[])
-{
-	char *envp[] = {
-		"HOME=/",
-		"PATH=/system/bin:/system/xbin:/vendor/bin",
-		NULL
-	};
-
-	return call_usermodehelper("/system/bin/toybox", argv, envp,
-				   UMH_WAIT_PROC);
-}
-
-static int ki_filesystem_bind(const char *source, const char *target)
-{
-	char *argv[] = {
-		"mount", "--bind", (char *)source, (char *)target, NULL
-	};
-
-	if (!source || !*source || !target || !*target)
-		return -EINVAL;
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
-
-	return ki_filesystem_run(argv);
-}
-
-static int ki_filesystem_umount(const char *target, bool lazy)
-{
-	if (!target || !*target)
-		return -EINVAL;
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-	{
-		struct path path;
-		int ret = kern_path(target, LOOKUP_FOLLOW, &path);
-
-		if (ret)
-			return ret;
-		ret = path_umount(&path, lazy ? MNT_DETACH : 0);
-		path_put(&path);
-		return ret;
-	}
-#else
-	{
-		mm_segment_t old_fs = get_fs();
-		int ret;
-
-		set_fs(KERNEL_DS);
-		ret = ksys_umount((char __user *)target,
-				  lazy ? MNT_DETACH : 0);
-		set_fs(old_fs);
-		return ret;
-	}
-#endif
-}
 
 static int ki_filesystem_config_set(const char *key, const char *value)
 {
@@ -129,8 +71,6 @@ static int ki_filesystem_stat(const char *path_name, char *value, size_t size)
 	struct path path;
 	struct kstat stat;
 	char *copy;
-	kuid_t uid;
-	kgid_t gid;
 	int ret;
 
 	if (!path_name || !*path_name || !value || !size)
@@ -154,8 +94,6 @@ static int ki_filesystem_stat(const char *path_name, char *value, size_t size)
 	ret = vfs_getattr(&path, &stat);
 #endif
 	if (!ret) {
-		uid = stat.uid;
-		gid = stat.gid;
 		snprintf(value, size,
 			 "mode=%#o size=%lld blocks=%lld ino=%llu nlink=%u "
 			 "uid=%u gid=%u dev=%u:%u",
@@ -164,10 +102,11 @@ static int ki_filesystem_stat(const char *path_name, char *value, size_t size)
 			 (long long)stat.blocks,
 			 (unsigned long long)stat.ino,
 			 (unsigned int)stat.nlink,
-			 from_kuid_munged(current_user_ns(), uid),
-			 from_kgid_munged(current_user_ns(), gid),
+			 from_kuid_munged(current_user_ns(), stat.uid),
+			 from_kgid_munged(current_user_ns(), stat.gid),
 			 MAJOR(stat.dev), MINOR(stat.dev));
 	}
+
 	path_put(&path);
 out_free:
 	kfree(copy);
@@ -176,41 +115,22 @@ out_free:
 
 static int ki_filesystem_func_set(const char *key, const char *value)
 {
-	char *original;
-	char *source;
-	char *target;
-	int ret;
-
-	if (!key || !value || !*value)
+	/*
+	 * Keep runtime filesystem operations non-mutating.  Mount topology
+	 * changes belong to the normal mount(2)/umount(2) interface instead of
+	 * being implemented through a shell helper inside the kernel.
+	 */
+	if (!key || !value)
 		return -EINVAL;
 
-		if (!strcmp(key, "umount"))
-		return ki_filesystem_umount(value, false);
-
-	if (!strcmp(key, "hot_unmount"))
-		return ki_filesystem_umount(value, true);
-
-	if (strcmp(key, "add"))
-		return -EINVAL;
-
-	original = kstrdup(value, GFP_KERNEL);
-	if (!original)
-		return -ENOMEM;
-
-	target = original;
-	source = strsep(&target, "\t");
-	if (!source || !target || !*source || !*target)
-		ret = -EINVAL;
-	else
-		ret = ki_filesystem_bind(source, target);
-
-	kfree(original);
-	return ret;
+	return -EOPNOTSUPP;
 }
 
 static int ki_filesystem_func_unset(const char *key)
 {
-	return key && *key ? -EOPNOTSUPP : -EINVAL;
+	if (key && *key)
+		return -EOPNOTSUPP;
+	return -EINVAL;
 }
 
 static int ki_filesystem_func_reset(void)
@@ -234,8 +154,7 @@ static int ki_filesystem_get_real(const char *key, char *value, size_t size)
 		return ki_filesystem_stat(key + 5, value, size);
 
 	if (!strcmp(key, "count")) {
-		file = filp_open("/proc/self/mountinfo",
-				 O_RDONLY | O_CLOEXEC, 0);
+		file = filp_open("/proc/self/mountinfo", O_RDONLY | O_CLOEXEC, 0);
 		if (IS_ERR(file))
 			return PTR_ERR(file);
 
