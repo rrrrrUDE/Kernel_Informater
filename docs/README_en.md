@@ -4,7 +4,7 @@
 
 A Kernel Management Tool for Android.
 
-Kernel Informater (KI) is a kernel management tool for Android. It manages kernel information by deploying hooks within the kernel.
+Kernel Informater (KI) is a kernel management tool for Android. It manages kernel by deploying hooks within the kernel.
 
 ## Kernel Integration
 
