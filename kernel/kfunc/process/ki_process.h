@@ -4,6 +4,10 @@
 
 #include "ki_kfunc.h"
 
+struct ki_ioc_process_entry;
+struct ki_ioc_process_info;
+struct ki_ioc_process_read;
+
 extern struct ki_kfunc ki_process_kfunc;
 
 int ki_process_hook_init(void);
