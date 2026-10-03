@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Checkout Android kernel
-        run: git clone --depth=1 --branch android-4.19 https://android.googlesource.com/kernel/common kernel-tree
+        run: git clone --depth=1 --branch deprecated/android-3.18 https://android.googlesource.com/kernel/common kernel-tree
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 clang-14 lld-14 binutils-aarch64-linux-gnu
       - name: Integrate Kernel Informater
