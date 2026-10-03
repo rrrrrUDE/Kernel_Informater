@@ -15,7 +15,7 @@ jobs:
 
       - name: Checkout Android common 4.19
         run: |
-          git clone --depth 1 --branch experimental/android-4.19 \
+          git clone --depth 1 --branch android-5.10 \
             https://android.googlesource.com/kernel/common kernel-tree
 
       - name: Install build dependencies
@@ -37,11 +37,11 @@ jobs:
         run: |
           make ARCH=arm64 defconfig
           scripts/config --enable CONFIG_KI
-          scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
+          scripts/config --enable CONFIG_KI_TRACEPOINT_HOOK
           scripts/config --disable CONFIG_KGDB
           make ARCH=arm64 olddefconfig
 
       - name: Compile Kernel Informater
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 CONFIG_KI=y kernel/Kernel_Informater/
+          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 HOSTCFLAGS=-fcommon LLVM_IAS=1 CONFIG_KI=m kernel/Kernel_Informater/
