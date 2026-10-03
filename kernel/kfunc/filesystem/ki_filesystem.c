@@ -2,6 +2,8 @@
 #include <linux/capability.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
+#include <linux/namei.h>
+#include <linux/cred.h>
 #include <linux/kernel.h>
 #include <linux/limits.h>
 #include <linux/slab.h>
@@ -221,7 +223,7 @@ int ki_filesystem_list_line(unsigned int index, char *line, size_t size)
 	char *next;
 	loff_t pos = 0;
 	ssize_t len;
-	unsigned int current = 0;
+	unsigned int line_index = 0;
 
 	if (!line || !size)
 		return -EINVAL;
@@ -251,7 +253,7 @@ int ki_filesystem_list_line(unsigned int index, char *line, size_t size)
 		if (next)
 			*next++ = '\0';
 
-		if (current++ == index) {
+		if (line_index++ == index) {
 			ki_fs_strscpy(line, cursor, size);
 			kfree(buf);
 			return 0;
