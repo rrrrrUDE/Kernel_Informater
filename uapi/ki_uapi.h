@@ -44,6 +44,7 @@ enum ki_ioctl_nr {
 	KI_IOCTL_NR_PROCESS_READ_MEMORY,
 	KI_IOCTL_NR_PROCESS_KILL,
 	KI_IOCTL_NR_PROCESS_KILL_TREE,
+	KI_IOCTL_NR_LIST_LINE,
 };
 
 struct ki_ioc_version {
@@ -133,6 +134,16 @@ struct ki_ioc_process_pid {
 	__s32 pid;
 };
 
+#define KI_LIST_MODULE 1U
+#define KI_LIST_MOUNT  2U
+#define KI_UAPI_LIST_LINE_MAX 1024
+
+struct ki_ioc_list_line {
+	__u32 type;
+	__u32 index;
+	char line[KI_UAPI_LIST_LINE_MAX];
+};
+
 #define KI_IOC_GET_VERSION 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_VERSION, struct ki_ioc_version)
 #define KI_IOC_GET_DEBUG 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_DEBUG, struct ki_ioc_debug)
 #define KI_IOC_GET_KFUNC_FEATURES 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_KFUNC_FEATURES, struct ki_ioc_kfunc_features)
@@ -150,5 +161,6 @@ struct ki_ioc_process_pid {
 #define KI_IOC_PROCESS_READ_MEMORY 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_READ_MEMORY, struct ki_ioc_process_read)
 #define KI_IOC_PROCESS_KILL 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_KILL, struct ki_ioc_process_pid)
 #define KI_IOC_PROCESS_KILL_TREE 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_KILL_TREE, struct ki_ioc_process_pid)
+#define KI_IOC_LIST_LINE 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_LIST_LINE, struct ki_ioc_list_line)
 
 #endif /* _KI_UAPI_H */

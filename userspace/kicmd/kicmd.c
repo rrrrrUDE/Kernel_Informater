@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/syscall.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -39,30 +40,60 @@ static int list_kernel_lines(int fd, unsigned int type)
 
 static int module_func(int argc, char **argv)
 {
-	char value[KI_UAPI_VALUE_MAX];
-	size_t used = 0;
-	int i;
+	int fd;
+	int ret;
 
 	if (argc < 2)
 		return -EINVAL;
+
 	if (!strcmp(argv[1], "rmmod")) {
-		if (argc != 3)
+		if (argc != 3 || !argv[2][0])
 			return -EINVAL;
-		return ioctl_value(KI_IOC_FUNC_VALUE_SET, "module", "rmmod", argv[2]);
+#ifdef SYS_delete_module
+		ret = (int)syscall(SYS_delete_module, argv[2], 0);
+		if (ret < 0)
+			return -errno;
+		return 0;
+#else
+		return -ENOSYS;
+#endif
 	}
+
 	if (strcmp(argv[1], "insmod") || argc < 3)
 		return -EINVAL;
-	memset(value, 0, sizeof(value));
-	for (i = 2; i < argc; i++) {
-		size_t n = strlen(argv[i]);
-		if (n + used + (used ? 1 : 0) >= sizeof(value))
-			return -E2BIG;
-		if (used)
-			value[used++] = ' ';
-		memcpy(value + used, argv[i], n);
-		used += n;
+
+	fd = open(argv[2], O_RDONLY | O_CLOEXEC);
+	if (fd < 0)
+		return -errno;
+
+#ifdef SYS_finit_module
+	{
+		char value[KI_UAPI_VALUE_MAX];
+		size_t used = 0;
+		int i;
+
+		memset(value, 0, sizeof(value));
+		for (i = 3; i < argc; i++) {
+			size_t n = strlen(argv[i]);
+			if (n + used + (used ? 1 : 0) >= sizeof(value)) {
+				close(fd);
+				return -E2BIG;
+			}
+			if (used)
+				value[used++] = ' ';
+			memcpy(value + used, argv[i], n);
+			used += n;
+		}
+		ret = (int)syscall(SYS_finit_module, fd, value, 0);
 	}
-	return ioctl_value(KI_IOC_FUNC_VALUE_SET, "module", "insmod", value);
+#else
+	ret = -1;
+	errno = ENOSYS;
+#endif
+	close(fd);
+	if (ret < 0)
+		return -errno;
+	return 0;
 }
 
 static int mount_func(int argc, char **argv)
