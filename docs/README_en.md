@@ -17,7 +17,7 @@ See the [Integration Documentation](integrate/README_en.md).
 CONFIG_KI: Enable Kernel Informater
 CONFIG_KI_DEBUG: Enable debug mode
 CONFIG_KI_BOOTAPPLY: Let the kernel read and apply persistent configuration at boot.
-CONFIG_KI_KPROBEHOOK: Use Kprobe to perform Hooking. (GKI Only. When disabled, manual Hooks will be used.)
+CONFIG_KI_TRACEPOINT_HOOK: Use Tracepoint Syscall Redirect to perform Hooking. (GKI Only. When disabled, manual Hooks will be used.)
 
 Automatic Hooking is disabled by default. The minimum configuration is:
 
@@ -25,7 +25,7 @@ Automatic Hooking is disabled by default. The minimum configuration is:
 CONFIG_KI=y
 CONFIG_KI_DEBUG=n
 CONFIG_KI_BOOTAPPLY=n
-CONFIG_KI_KPROBEHOOK=n
+CONFIG_KI_TRACEPOINT_HOOK=n
 ```
 
 ## Hook Methods
@@ -34,8 +34,8 @@ Hooks are integrated directly into the kernel source code.
 
 Supported kernel versions: 3.18 – 6.18+
 
-### Kprobe Hook
-Uses Kprobe to implement Hooking.
+### Tracepoint Syscall Redirect Hook
+Uses Tracepoint Syscall Redirect to implement Hooking.
 
 ⚠️ Only supported on GKI 2.0+ kernels. Do not use this Hook method on GKI 1.0 or Non-GKI kernels.
 
@@ -57,8 +57,7 @@ The UAPI files are dual-licensed under GPL-2.0-or-later and MIT, as specified in
 
 ## Special Thanks
 - [KernelSU](https://github.com/tiann/KernelSU): Provided ideas and references for parts of the implementation.
-- [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): Reference for hook detection and setup.sh.
-
+- [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): Hook detection, setup.sh, and partial code references.
 KI is an independent project. Its architecture and implementation are developed independently according to its own requirements.
 
 We would like to thank the Android kernel open-source community for providing a large amount of engineering experience, practical implementations, and open-source references.
