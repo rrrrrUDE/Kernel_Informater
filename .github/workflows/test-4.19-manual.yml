@@ -1,4 +1,4 @@
-name: Test Build Kernel 4.19 Manual Hook
+name: Test Build Kernel 4.19 Non-GKI Manual Hook
 
 on:
   workflow_dispatch:
