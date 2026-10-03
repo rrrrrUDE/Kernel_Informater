@@ -135,7 +135,8 @@ struct ki_ioc_process_pid {
 };
 
 #define KI_LIST_MODULE 1U
-#define KI_LIST_MOUNT  2U
+#define KI_LIST_FILESYSTEM 2U
+#define KI_LIST_MOUNT KI_LIST_FILESYSTEM
 #define KI_UAPI_LIST_LINE_MAX 1024
 
 struct ki_ioc_list_line {
