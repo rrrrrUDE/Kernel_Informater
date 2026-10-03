@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: LKM · Android 4.19 · Manual Hook
+    name: LKM · Android 4.19 · Manual Hook · SHA-512 Signed
     runs-on: ubuntu-latest
 
     steps:
@@ -21,6 +21,8 @@ jobs:
 
       - name: Checkout Android Common
         run: |
+          set -eux
+
           git clone --depth=1 \
             https://github.com/rrrrrUDE/android_kernel_xiaomi_gauguin.git \
             kernel-tree
@@ -40,7 +42,8 @@ jobs:
             python3 \
             wget \
             gnupg \
-            ca-certificates
+            ca-certificates \
+            openssl
 
           wget -O - https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
 
@@ -70,11 +73,14 @@ jobs:
             llvm-cxxfilt
           do
             if [ -x "/usr/bin/${tool}-23" ]; then
-              sudo ln -sf "/usr/bin/${tool}-23" "/usr/local/bin/${tool}"
+              sudo ln -sf \
+                "/usr/bin/${tool}-23" \
+                "/usr/local/bin/${tool}"
             fi
           done
 
           echo "=== LLVM toolchain ==="
+
           clang --version
           clang++ --version
           ld.lld --version
@@ -82,6 +88,7 @@ jobs:
           llvm-nm --version
           llvm-objcopy --version
           llvm-objdump --version
+          llvm-readelf --version
           llvm-strip --version
 
       - name: Verify LLVM toolchain
@@ -89,15 +96,18 @@ jobs:
           set -eux
 
           command -v clang
+          command -v clang++
           command -v ld.lld
           command -v llvm-ar
           command -v llvm-nm
           command -v llvm-objcopy
           command -v llvm-objdump
+          command -v llvm-readelf
           command -v llvm-strip
 
           clang --version | head -n 1
           ld.lld --version | head -n 1
+          llvm-readelf --version | head -n 1
 
       - name: Integrate Kernel Informater
         run: |
@@ -141,6 +151,24 @@ jobs:
           scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
           scripts/config --disable CONFIG_KGDB
 
+          scripts/config --enable CONFIG_MODULE_SIG
+          scripts/config --enable CONFIG_MODULE_SIG_FORCE
+          scripts/config --enable CONFIG_MODULE_SIG_ALL
+
+          scripts/config --disable CONFIG_MODULE_SIG_SHA1
+          scripts/config --disable CONFIG_MODULE_SIG_SHA224
+          scripts/config --disable CONFIG_MODULE_SIG_SHA256
+          scripts/config --disable CONFIG_MODULE_SIG_SHA384
+          scripts/config --enable CONFIG_MODULE_SIG_SHA512
+
+          scripts/config --set-str \
+            CONFIG_MODULE_SIG_HASH \
+            sha512
+
+          scripts/config --set-str \
+            CONFIG_MODULE_SIG_KEY \
+            certs/verity.x509.pem
+
           make \
             ARCH=arm64 \
             LLVM=1 \
@@ -153,8 +181,20 @@ jobs:
             '^(CONFIG_KI|CONFIG_MODULES|CONFIG_KI_TRACEPOINT_HOOK|CONFIG_TRACEPOINTS)=' \
             .config || true
 
+          echo "=== Effective module signing configuration ==="
+
+          grep -E \
+            '^(CONFIG_MODULE_SIG|CONFIG_MODULE_SIG_FORCE|CONFIG_MODULE_SIG_ALL|CONFIG_MODULE_SIG_SHA|CONFIG_MODULE_SIG_HASH|CONFIG_MODULE_SIG_KEY)=' \
+            .config || true
+
           grep -q '^CONFIG_KI=m$' .config
           grep -q '^CONFIG_MODULES=y$' .config
+
+          grep -q '^CONFIG_MODULE_SIG=y$' .config
+          grep -q '^CONFIG_MODULE_SIG_FORCE=y$' .config
+          grep -q '^CONFIG_MODULE_SIG_ALL=y$' .config
+          grep -q '^CONFIG_MODULE_SIG_SHA512=y$' .config
+          grep -q '^CONFIG_MODULE_SIG_HASH="sha512"$' .config
 
       - name: Verify Manual Hook mode
         working-directory: kernel-tree
@@ -162,12 +202,193 @@ jobs:
           set -eux
 
           VERSION=$(sed -n 's/^VERSION = //p' Makefile)
+          PATCHLEVEL=$(sed -n 's/^PATCHLEVEL = //p' Makefile)
 
           echo "Kernel VERSION: ${VERSION}"
+          echo "Kernel PATCHLEVEL: ${PATCHLEVEL}"
 
           test "${VERSION}" -ge 3
 
           ! grep -q '^CONFIG_KI_TRACEPOINT_HOOK=y$' .config
+
+      - name: Verify kernel signing material
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          SIGNING_FILE="certs/verity.x509.pem"
+
+          echo "=== Signing file ==="
+
+          test -f "${SIGNING_FILE}"
+          test -s "${SIGNING_FILE}"
+
+          ls -lh "${SIGNING_FILE}"
+
+          echo "=== PEM objects ==="
+
+          grep -E \
+            '^-----BEGIN (RSA |EC |ENCRYPTED )?(PRIVATE KEY|RSA PRIVATE KEY|EC PRIVATE KEY|CERTIFICATE)-----$' \
+            "${SIGNING_FILE}" || true
+
+          echo "=== Certificate information ==="
+
+          if grep -q 'BEGIN CERTIFICATE' "${SIGNING_FILE}"; then
+            openssl x509 \
+              -in "${SIGNING_FILE}" \
+              -noout \
+              -subject \
+              -issuer \
+              -serial \
+              -fingerprint \
+              -sha256
+          else
+            echo "No X.509 certificate found in ${SIGNING_FILE}."
+          fi
+
+      - name: Prepare module signing files
+        working-directory: kernel-tree
+        run: |
+          set -euo pipefail
+
+          SOURCE="certs/verity.x509.pem"
+
+          test -f "${SOURCE}"
+
+          rm -f \
+            certs/ki_signing_key.pem \
+            certs/ki_signing_cert.x509
+
+          echo "=== Detecting private key ==="
+
+          if grep -q \
+            'BEGIN PRIVATE KEY' \
+            "${SOURCE}" || \
+             grep -q \
+            'BEGIN RSA PRIVATE KEY' \
+            "${SOURCE}" || \
+             grep -q \
+            'BEGIN EC PRIVATE KEY' \
+            "${SOURCE}"; then
+
+            echo "Private key detected."
+
+          else
+            echo "::error::certs/verity.x509.pem does not contain a private key."
+            echo "A private key is required by scripts/sign-file."
+            exit 1
+          fi
+
+          echo "=== Extracting private key ==="
+
+          awk '
+            /-----BEGIN .*PRIVATE KEY-----/ {
+              capture=1
+            }
+
+            capture {
+              print
+            }
+
+            /-----END .*PRIVATE KEY-----/ {
+              exit
+            }
+          ' "${SOURCE}" \
+            > certs/ki_signing_key.pem
+
+          echo "=== Extracting X.509 certificate ==="
+
+          awk '
+            /-----BEGIN CERTIFICATE-----/ {
+              capture=1
+            }
+
+            capture {
+              print
+            }
+
+            /-----END CERTIFICATE-----/ {
+              exit
+            }
+          ' "${SOURCE}" \
+            > certs/ki_signing_cert.x509
+
+          chmod 600 certs/ki_signing_key.pem
+          chmod 644 certs/ki_signing_cert.x509
+
+          test -s certs/ki_signing_key.pem
+          test -s certs/ki_signing_cert.x509
+
+          echo "Signing material prepared."
+
+      - name: Verify signing key and certificate
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          echo "=== Private key validation ==="
+
+          openssl pkey \
+            -in certs/ki_signing_key.pem \
+            -noout
+
+          echo "Private key OK."
+
+          echo "=== Certificate validation ==="
+
+          openssl x509 \
+            -in certs/ki_signing_cert.x509 \
+            -noout \
+            -subject \
+            -issuer \
+            -serial \
+            -fingerprint \
+            -sha256
+
+          echo "Certificate OK."
+
+          echo "=== Checking key/certificate match ==="
+
+          KEY_HASH="$(
+            openssl pkey \
+              -in certs/ki_signing_key.pem \
+              -pubout \
+              -outform DER \
+              2>/dev/null \
+              | sha256sum \
+              | awk '{print $1}'
+          )"
+
+          CERT_HASH="$(
+            openssl x509 \
+              -in certs/ki_signing_cert.x509 \
+              -pubkey \
+              -noout \
+              | openssl pkey \
+                -pubin \
+                -outform DER \
+                2>/dev/null \
+              | sha256sum \
+              | awk '{print $1}'
+          )"
+
+          echo "Key public key hash:  ${KEY_HASH}"
+          echo "Cert public key hash: ${CERT_HASH}"
+
+          test "${KEY_HASH}" = "${CERT_HASH}"
+
+          echo "Key and certificate match."
+
+      - name: Verify sign-file
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          test -x scripts/sign-file
+
+          echo "=== sign-file ==="
+
+          file scripts/sign-file
 
       - name: Prepare external module build
         working-directory: kernel-tree
@@ -196,27 +417,196 @@ jobs:
 
           test -f kernel/Kernel_Informater/ki.ko
 
+          echo "=== Built module ==="
+
           file kernel/Kernel_Informater/ki.ko
+
+      - name: Sign Kernel Informater with SHA-512
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          MODULE="kernel/Kernel_Informater/ki.ko"
+
+          test -f "${MODULE}"
+
+          echo "=== Checking existing signature ==="
+
+          if modinfo "${MODULE}" 2>/dev/null | \
+              grep -Eq \
+              '^sig_hashalgo:[[:space:]]*sha512$'; then
+
+            echo "Kbuild already generated a SHA-512 signature."
+
+          else
+
+            echo "Signing ki.ko manually..."
+
+            scripts/sign-file \
+              sha512 \
+              certs/ki_signing_key.pem \
+              certs/ki_signing_cert.x509 \
+              "${MODULE}"
+
+            echo "SHA-512 signing complete."
+
+          fi
+
+          echo "=== Signature section ==="
+
+          llvm-readelf -S "${MODULE}" | \
+            grep -E '(__modsig|module_sig)'
 
       - name: Verify Kernel Informater module
         working-directory: kernel-tree
         run: |
           set -eux
 
-          echo "=== KI module ==="
-          ls -lh kernel/Kernel_Informater/ki.ko
+          MODULE="kernel/Kernel_Informater/ki.ko"
 
-          echo "=== KI module type ==="
-          file kernel/Kernel_Informater/ki.ko
+          test -f "${MODULE}"
 
+          echo "========================================"
+          echo " Kernel Informater Module Verification"
+          echo "========================================"
+
+          echo
+          echo "=== Module ==="
+
+          ls -lh "${MODULE}"
+          file "${MODULE}"
+
+          echo
           echo "=== ELF header ==="
-          llvm-readelf -h kernel/Kernel_Informater/ki.ko
 
-          echo "=== Module information ==="
-          modinfo kernel/Kernel_Informater/ki.ko || true
+          llvm-readelf -h "${MODULE}"
+
+          echo
+          echo "=== Signature section ==="
+
+          llvm-readelf -S "${MODULE}" | \
+            grep -E '(__modsig|module_sig)'
+
+          echo
+          echo "=== modinfo ==="
+
+          MODINFO_OUTPUT="$(
+            modinfo "${MODULE}"
+          )"
+
+          echo "${MODINFO_OUTPUT}"
+
+          echo
+          echo "=== Verify SHA-512 ==="
+
+          echo "${MODINFO_OUTPUT}" | \
+            grep -Eq \
+            '^sig_hashalgo:[[:space:]]*sha512$'
+
+          echo
+          echo "=== Verify signer ==="
+
+          echo "${MODINFO_OUTPUT}" | \
+            grep -q '^signer:'
+
+          echo
+          echo "=== Verify signature key ==="
+
+          echo "${MODINFO_OUTPUT}" | \
+            grep -q '^sig_key:'
+
+          echo
+          echo "=== Verify vermagic ==="
+
+          echo "${MODINFO_OUTPUT}" | \
+            grep -q '^vermagic:'
+
+          echo
+          echo "Module signature verification passed."
+
+      - name: Verify signer certificate
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          MODULE="kernel/Kernel_Informater/ki.ko"
+
+          echo "=== Expected signing certificate ==="
+
+          openssl x509 \
+            -in certs/ki_signing_cert.x509 \
+            -noout \
+            -subject \
+            -issuer \
+            -serial \
+            -fingerprint \
+            -sha256
+
+          echo
+          echo "=== Module signature metadata ==="
+
+          modinfo "${MODULE}" | \
+            grep -E \
+            '^(signer|sig_key|sig_hashalgo):'
+
+          echo
+          echo "=== Required hash ==="
+
+          modinfo "${MODULE}" | \
+            grep -Eq \
+            '^sig_hashalgo:[[:space:]]*sha512$'
+
+          echo
+          echo "SHA-512 signature verified."
+
+      - name: Final LKM verification
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          MODULE="kernel/Kernel_Informater/ki.ko"
+
+          test -f "${MODULE}"
+
+          modinfo "${MODULE}" | \
+            grep -Eq \
+            '^name:[[:space:]]*ki$|^name:.*ki'
+
+          modinfo "${MODULE}" | \
+            grep -Eq \
+            '^sig_hashalgo:[[:space:]]*sha512$'
+
+          modinfo "${MODULE}" | \
+            grep -q '^signer:'
+
+          modinfo "${MODULE}" | \
+            grep -q '^sig_key:'
+
+          echo
+          echo "========================================"
+          echo " Kernel Informater LKM READY"
+          echo "========================================"
+          echo
+          echo "Module: ${MODULE}"
+          echo "Signature: SHA-512"
+          echo "Status: SIGNED"
+          echo
+
+      - name: Remove temporary private key
+        if: always()
+        working-directory: kernel-tree
+        run: |
+          set +e
+
+          rm -f \
+            certs/ki_signing_key.pem
+
+          echo "Temporary private key removed."
 
       - name: Upload LKM
         uses: actions/upload-artifact@v4
         with:
-          name: android-4-19-manual-hook
+          name: android-4-19-manual-hook-sha512-signed
           path: kernel-tree/kernel/Kernel_Informater/ki.ko
+          if-no-files-found: error
+          retention-days: 30
