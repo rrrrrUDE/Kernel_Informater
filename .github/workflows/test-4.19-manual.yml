@@ -25,7 +25,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 clang-14 lld-14 binutils-aarch64-linux-gnu
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 clang-14 lld-14 binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
 
       - name: Integrate Kernel Informater
         run: |
@@ -34,6 +34,8 @@ jobs:
           cp -a kernel/. kernel-tree/kernel/Kernel_Informater/
           printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' >> kernel-tree/Kconfig
           printf '\nobj-$(CONFIG_KI) += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
+          mkdir -p kernel-tree/kernel/Kernel_Informater/uapi
+          cp -a uapi/. kernel-tree/kernel/Kernel_Informater/uapi/
 
       - name: Configure Manual Hook
         working-directory: kernel-tree
@@ -58,16 +60,18 @@ jobs:
       - name: Prepare external module build
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
-            CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
-            HOSTCFLAGS=-fcommon LLVM_IAS=1 modules_prepare
+          make -j2 ARCH=arm64 CC=aarch64-linux-gnu-gcc LD=aarch64-linux-gnu-ld \
+            AS=aarch64-linux-gnu-as AR=aarch64-linux-gnu-ar NM=aarch64-linux-gnu-nm \
+            STRIP=aarch64-linux-gnu-strip OBJCOPY=aarch64-linux-gnu-objcopy \
+            OBJDUMP=aarch64-linux-gnu-objdump HOSTCFLAGS=-fcommon modules_prepare
 
       - name: Build Kernel Informater
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=clang-14 LD=ld.lld-14 \
-            CROSS_COMPILE=aarch64-linux-gnu- CLANG_TRIPLE=aarch64-linux-gnu- \
-            HOSTCFLAGS=-fcommon LLVM_IAS=1 M=kernel/Kernel_Informater modules
+          make -j2 ARCH=arm64 CC=aarch64-linux-gnu-gcc LD=aarch64-linux-gnu-ld \
+            AS=aarch64-linux-gnu-as AR=aarch64-linux-gnu-ar NM=aarch64-linux-gnu-nm \
+            STRIP=aarch64-linux-gnu-strip OBJCOPY=aarch64-linux-gnu-objcopy \
+            OBJDUMP=aarch64-linux-gnu-objdump HOSTCFLAGS=-fcommon M=kernel/Kernel_Informater modules
           test -f kernel/Kernel_Informater/ki.ko
           file kernel/Kernel_Informater/ki.ko
 
