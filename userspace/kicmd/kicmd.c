@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -105,6 +106,16 @@ static int cli_unexpected_argument(const char *usage, const char *argument)
 		"Usage: %s\n\n"
 		"For more information, try '--help'.\n",
 		argument ? argument : "", usage);
+	return 1;
+}
+
+static int cli_invalid_argument(const char *usage, const char *argument)
+{
+	fprintf(stderr,
+		"error: invalid value for <%s>\n\n"
+		"Usage: %s\n\n"
+		"For more information, try '--help'.\n",
+		argument ? argument : "argument", usage);
 	return 1;
 }
 
@@ -991,8 +1002,8 @@ static int cmd_safemode(int argc, char **argv)
 			return cli_unexpected_argument("kicmd safemode enable", argv[2]);
 		fd = open(KI_USER_SAFE_MODE, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
 		if (fd < 0) {
-			fprintf(stderr, "%s: create %s: %s\n",
-				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
+			fprintf(stderr, "Error: create %s: %s\n",
+				KI_USER_SAFE_MODE, strerror(errno));
 			return 1;
 		}
 		close(fd);
@@ -1004,8 +1015,8 @@ static int cmd_safemode(int argc, char **argv)
 		if (argc > 2)
 			return cli_unexpected_argument("kicmd safemode disable", argv[2]);
 		if (unlink(KI_USER_SAFE_MODE) && errno != ENOENT) {
-			fprintf(stderr, "%s: remove %s: %s\n",
-				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
+			fprintf(stderr, "Error: remove %s: %s\n",
+				KI_USER_SAFE_MODE, strerror(errno));
 			return 1;
 		}
 		debug_log("safemode disable");
@@ -1030,8 +1041,11 @@ static int cmd_config(int argc, char **argv)
 
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
-		if (argc != 5)
-			return fprintf(stderr, "%s: usage: config set <kfunc> <key> <value>\n", KICMD_NAME), 1;
+		if (argc < 5)
+			return cli_missing_argument("kicmd config set <kfunc> <key> <value>",
+				argc < 3 ? "kfunc" : argc < 4 ? "key" : "value");
+		if (argc > 5)
+			return cli_unexpected_argument("kicmd config set <kfunc> <key> <value>", argv[5]);
 		kfunc = argv[2]; key = argv[3]; value = argv[4];
 {
 			int fd = open_ki_checked();
@@ -1052,8 +1066,11 @@ static int cmd_config(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_UNSET)) {
-		if (argc != 4)
-			return fprintf(stderr, "%s: usage: config unset <kfunc> <key>\n", KICMD_NAME), 1;
+		if (argc < 4)
+			return cli_missing_argument("kicmd config unset <kfunc> <key>",
+				argc < 3 ? "kfunc" : "key");
+		if (argc > 4)
+			return cli_unexpected_argument("kicmd config unset <kfunc> <key>", argv[4]);
 		kfunc = argv[2]; key = argv[3];
 {
 			int fd = open_ki_checked();
@@ -1074,17 +1091,17 @@ static int cmd_config(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_DEL)) {
-		if (argc < 3 || argc > 4 || !argv[2] || !*argv[2] ||
-		    !valid_token(argv[2]))
-			return fprintf(stderr,
-				"%s: usage: config del <kfunc> [key]\n",
-				KICMD_NAME), 1;
+		if (argc < 3)
+			return cli_missing_argument("kicmd config del <kfunc> [key]", "kfunc");
+		if (argc > 4)
+			return cli_unexpected_argument("kicmd config del <kfunc> [key]", argv[4]);
+		if (!argv[2] || !*argv[2] || !valid_token(argv[2]))
+			return cli_invalid_argument("kicmd config del <kfunc> [key]", "kfunc");
 
 		kfunc = argv[2];
 		key = (argc == 4 && argv[3] && *argv[3]) ? argv[3] : NULL;
 		if (key && !valid_token(key))
-			return fprintf(stderr,
-				"%s: invalid config key\n", KICMD_NAME), 1;
+			return cli_invalid_argument("kicmd config del <kfunc> [key]", "key");
 		{
 			int fd = open_ki_checked();
 			if (fd < 0)
@@ -1116,7 +1133,7 @@ static int cmd_config(int argc, char **argv)
 
 	if (!strcmp(argv[1], KICMD_SUB_RESET)) {
 		if (argc > 3)
-			return fprintf(stderr, "%s: usage: config reset [<kfunc>]\n", KICMD_NAME), 1;
+			return cli_unexpected_argument("kicmd config reset [<kfunc>]", argv[3]);
 		if (argc == 3) {
 			kfunc = argv[2];
 			{
@@ -1159,7 +1176,7 @@ static int cmd_config(int argc, char **argv)
 
 	if (!strcmp(argv[1], KICMD_SUB_LIST)) {
 		if (argc > 3)
-			return fprintf(stderr, "%s: usage: config list [<kfunc>]\n", KICMD_NAME), 1;
+			return cli_unexpected_argument("kicmd config list [<kfunc>]", argv[3]);
 cfg_list(argc == 3 ? argv[2] : NULL);
 		return 0;
 	}
@@ -1432,6 +1449,18 @@ static int cmd_list_process(int argc, char **argv)
 {
 	pid_t pid;
 	int ret;
+
+	if (argc >= 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help") ||
+			!strcmp(argv[1], "help"))) {
+		fputs("Usage: kicmd list process [<pid>]\n\n"
+		      "Show all visible processes or information for one PID.\n\n"
+		      "Options:\n"
+		      "  -h, --help   Print help\n", stdout);
+		return 0;
+	}
+
+	if (argc > 2)
+		return cli_unexpected_argument("kicmd list process [<pid>]", argv[2]);
 
 	if (argc == 2) {
 		ret = parse_pid(argv[1], &pid);
