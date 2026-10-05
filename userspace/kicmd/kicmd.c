@@ -213,7 +213,7 @@ static int filesystem_func(int argc, char **argv)
 	return 0;
 }
 
-static int cmd_list_process( int argc, char **argv);
+static int cmd_list_process(int argc, char **argv);
 static int cmd_func_process(int argc, char **argv);
 static int check_kfunc_feature( const char *kfunc, unsigned int feature)
 {
@@ -945,7 +945,7 @@ cfg_list(argc == 3 ? argv[2] : NULL);
 	return fprintf(stderr, "%s: unknown config command: %s\n", KICMD_NAME, argv[1]), 1;
 }
 
-static int list_real_one(int fd, const char *kfunc, const char *key)
+static int list_real_one(const char *kfunc, const char *key)
 {
 	struct ki_ioc_real real;
 
@@ -981,7 +981,7 @@ static int list_real_kfunc(int fd, const char *kfunc)
 				return 0;
 			return -errno;
 		}
-		ret = list_real_one(fd, info.kfunc, info.key);
+		ret = list_real_one(info.kfunc, info.key);
 		if (ret)
 			return ret;
 		index++;
@@ -1115,7 +1115,7 @@ static int parse_u64(const char *s, unsigned long long *value)
 	return 0;
 }
 
-static int process_check_func(int fd)
+static int process_check_func(void)
 {
 	int ret = check_kfunc_feature("process", KI_KFUNC_FEATURE_FUNC);
 
@@ -1125,7 +1125,7 @@ static int process_check_func(int fd)
 	return ret;
 }
 
-static int list_process(int fd)
+static int list_process(void)
 {
 	(void)fd;
 	struct ki_ioc_process_entry entry;
@@ -1207,7 +1207,7 @@ static int process_signal( pid_t pid, bool tree)
 	return 0;
 }
 
-static int cmd_list_process(int fd, int argc, char **argv)
+static int cmd_list_process(int argc, char **argv)
 {
 	pid_t pid;
 	int ret;
