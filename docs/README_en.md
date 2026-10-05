@@ -58,9 +58,10 @@ The kernel components are licensed under GPL-2.0-only.
 The UAPI files are dual-licensed under GPL-2.0-or-later and MIT, as specified in their respective file headers.
 
 ## Special Thanks
-- [KernelSU](https://github.com/tiann/KernelSU): Provided ideas and references for parts of the implementation.
-- [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): Hook detection, setup.sh, and partial code references.
-- [Kasumi](https://github.com/Rouyashiki/Kasumi): Reference for mount-management ideas and implementation.
+ * [KernelSU](https://github.com/tiann/KernelSU): Provides some ideas and code references.
+ * [BakaSU](https://github.com/Baka-SU/BakaSU): Provides partial code and Non-GKI support code references.
+ * [Kasumi](https://github.com/Rouyashiki/Kasumi) + [NoMount](https://github.com/maxsteeel/nomount): Provides references for mount management concepts and implementations.
+
 KI is an independent project. Its architecture and implementation are developed independently according to its own requirements.
 
 We would like to thank the Android kernel open-source community for providing a large amount of engineering experience, practical implementations, and open-source references.
