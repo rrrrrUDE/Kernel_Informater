@@ -16,6 +16,8 @@
 #include "kicmd_def.h"
 
 static int ki_ioctl(int fd, unsigned long request, void *arg);
+static int ensure_userd_dir(void);
+static bool ki_debug_enabled(void);
 static int ioctl_value(unsigned long request,
 			       const char *kfunc, const char *key, const char *value);
 static int open_ki_checked(void);
@@ -45,7 +47,7 @@ static void module_report_error(const char *operation, const char *name, int err
 	char buf[4096];
 	ssize_t n;
 
-	fprintf(stderr, "%s: %s %s: %s\\n",
+	fprintf(stderr, "%s: %s %s: %s\n",
 		KICMD_NAME, operation, name ? name : "module", reason);
 
 	/*
@@ -61,16 +63,16 @@ static void module_report_error(const char *operation, const char *name, int err
 		return;
 
 	while ((n = read(kmsg, buf, sizeof(buf) - 1)) > 0) {
-		buf[n] = '\\0';
+		buf[n] = '\0';
 		for (char *line = buf; line;) {
-			char *next = strchr(line, '\\n');
+			char *next = strchr(line, '\n');
 			if (next)
-				*next++ = '\\0';
+				*next++ = '\0';
 			if (strstr(line, "Unknown symbol") ||
 			    strstr(line, "version magic") ||
 			    strstr(line, "invalid module") ||
 			    strstr(line, "module verification failed")) {
-				fprintf(stderr, "%s: kernel: %s\\n", KICMD_NAME, line);
+				fprintf(stderr, "%s: kernel: %s\n", KICMD_NAME, line);
 			}
 			line = next;
 			if (!next)
@@ -427,6 +429,20 @@ static int cfg_set_active_and_ioctl(bool active)
 static int ki_ioctl(int fd, unsigned long request, void *arg)
 {
 	int ret;
+
+	/*
+	 * KernelSU keeps its userspace control path intentionally thin:
+	 * obtain the driver fd, issue the UAPI request, and centralize the
+	 * EINTR handling/error boundary here.
+	 *
+	 * Keep the existing fd lifetime model in kicmd for now, so this is
+	 * an implementation refactor only. KI_IOC_* request codes, numbers,
+	 * payload structures and ABI are unchanged.
+	 */
+	if (fd < 0) {
+		errno = EBADF;
+		return -1;
+	}
 
 	do {
 		ret = ioctl(fd, request, arg);
