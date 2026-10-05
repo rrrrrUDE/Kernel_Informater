@@ -111,4 +111,4 @@ static const char kicmd_help_func[] =
 	"Options:\n"
 	"  -h, --help                            Print help\n";
 
-#endif /* KICMD_DEF_H */ /* KICMD_DEF_H */
+#endif /* KICMD_DEF_H */
