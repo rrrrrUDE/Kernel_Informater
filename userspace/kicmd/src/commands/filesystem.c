@@ -1,3 +1,4 @@
+#include "../../include/kicmd_internal.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -158,8 +159,7 @@ int filesystem_func(int argc, char **argv)
 	close_ki();
 	printf("%s.%s=%s\n", real.kfunc, real.key, real.value);
 	return 0;
-}#include "../../include/kicmd_internal.h"
-#include <errno.h>
+}#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
