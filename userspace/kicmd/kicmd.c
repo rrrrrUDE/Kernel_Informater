@@ -38,6 +38,49 @@ static int list_kernel_lines(int fd, unsigned int type)
 	}
 }
 
+static void module_report_error(const char *operation, const char *name, int error)
+{
+	const char *reason = strerror(error);
+	int kmsg = -1;
+	char buf[4096];
+	ssize_t n;
+
+	fprintf(stderr, "%s: %s %s: %s\\n",
+		KICMD_NAME, operation, name ? name : "module", reason);
+
+	/*
+	 * Like ksud, inspect the kernel log after a module-load failure so
+	 * users get the actual kernel-side reason (vermagic, unknown symbol,
+	 * invalid format, etc.) instead of only errno.
+	 */
+	if (strcmp(operation, "insmod"))
+		return;
+
+	kmsg = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+	if (kmsg < 0)
+		return;
+
+	while ((n = read(kmsg, buf, sizeof(buf) - 1)) > 0) {
+		buf[n] = '\\0';
+		for (char *line = buf; line;) {
+			char *next = strchr(line, '\\n');
+			if (next)
+				*next++ = '\\0';
+			if (strstr(line, "Unknown symbol") ||
+			    strstr(line, "version magic") ||
+			    strstr(line, "invalid module") ||
+			    strstr(line, "module verification failed")) {
+				fprintf(stderr, "%s: kernel: %s\\n", KICMD_NAME, line);
+			}
+			line = next;
+			if (!next)
+				break;
+		}
+	}
+
+	close(kmsg);
+}
+
 static int module_func(int argc, char **argv)
 {
 	int fd;
@@ -51,8 +94,12 @@ static int module_func(int argc, char **argv)
 			return -EINVAL;
 #ifdef SYS_delete_module
 		ret = (int)syscall(SYS_delete_module, argv[2], 0);
-		if (ret < 0)
-			return -errno;
+		if (ret < 0) {
+			int error = errno;
+			module_report_error("rmmod", argv[2], error);
+			return -error;
+		}
+		debug_log("module rmmod %s", argv[2]);
 		return 0;
 #else
 		return -ENOSYS;
@@ -91,8 +138,12 @@ static int module_func(int argc, char **argv)
 	errno = ENOSYS;
 #endif
 	close(fd);
-	if (ret < 0)
-		return -errno;
+	if (ret < 0) {
+		int error = errno;
+		module_report_error("insmod", argv[2], error);
+		return -error;
+	}
+	debug_log("module insmod %s", argv[2]);
 	return 0;
 }
 
