@@ -1,3 +1,4 @@
+#include "../../include/kicmd_internal.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -69,8 +70,7 @@ int cmd_func(int argc, char **argv)
 	}
 
 	{ static const char *const commands[] = { KICMD_SUB_SET, KICMD_SUB_UNSET, KICMD_SUB_RESET, "process", "module", "filesystem", KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd func <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
-}#include "../../include/kicmd_internal.h"
-int cmd_func(int argc, char **argv)
+}int cmd_func(int argc, char **argv)
 {
 	int ret;
 
