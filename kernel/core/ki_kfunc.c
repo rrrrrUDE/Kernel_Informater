@@ -22,8 +22,6 @@ static DEFINE_MUTEX(ki_kfunc_lock);
 
 static struct ki_kfunc *ki_kfunc_find_locked(const char *name)
 {
-	struct ki_kfunc_node *node;
-
 	{
 		struct ki_kfunc_node *hash_node;
 
