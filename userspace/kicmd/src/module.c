@@ -9,7 +9,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-static int module_func(int argc, char **argv)
+int module_func(int argc, char **argv)
 {
 	int fd;
 	int ret;
