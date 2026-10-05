@@ -48,31 +48,66 @@ static bool cli_command_matches(const char *input, const char *candidate)
 
 static void cli_print_suggestions(const char *input, const char *const *commands, size_t count)
 {
-    size_t i;
-    bool printed = false;
-    for (i = 0; i < count; i++) {
-        if (!cli_command_matches(input, commands[i])) continue;
-        if (!printed) { fputs("\n  tip: ", stderr); printed = true; }
-        else fputs(", ", stderr);
-        fprintf(stderr, "'%s'", commands[i]);
-    }
-    if (printed) fputc('\n', stderr);
+	size_t i;
+	size_t matches = 0;
+	const char *last = NULL;
+
+	for (i = 0; i < count; i++) {
+		if (cli_command_matches(input, commands[i])) {
+			matches++;
+			last = commands[i];
+		}
+	}
+
+	if (!matches)
+		return;
+
+	if (matches == 1)
+		fprintf(stderr, "\n  tip: a similar command exists: '%s'\n", last);
+	else {
+		fputs("\n  tip: some similar commands exist: ", stderr);
+		matches = 0;
+		for (i = 0; i < count; i++) {
+			if (!cli_command_matches(input, commands[i]))
+				continue;
+			if (matches++)
+				fputs(", ", stderr);
+			fprintf(stderr, "'%s'", commands[i]);
+		}
+		fputc('\n', stderr);
+	}
 }
 
 static int cli_unknown_command(const char *scope, const char *command, const char *usage, const char *const *commands, size_t count)
 {
-    fprintf(stderr, "error: unrecognized %s '%s'\n\n", scope, command ? command : "");
-    fprintf(stderr, "Usage: %s\n\n", usage);
-    cli_print_suggestions(command, commands, count);
-    fprintf(stderr, "For more information, try '--help'.\n");
-    return 1;
+	fprintf(stderr, "error: unrecognized %s '%s'\n", scope, command ? command : "");
+	cli_print_suggestions(command, commands, count);
+	fprintf(stderr, "\nUsage: %s\n\n", usage);
+	fprintf(stderr, "For more information, try '--help'.\n");
+	return 1;
 }
 
 static int cli_missing_argument(const char *usage, const char *argument)
 {
-    fprintf(stderr, "error: the following required arguments were not provided:\n  <%s>\n\nUsage: %s\n\nFor more information, try '--help'.\n", argument, usage);
-    return 1;
+	fprintf(stderr,
+		"error: the following required arguments were not provided:\n"
+		"  <%s>\n\n"
+		"Usage: %s\n\n"
+		"For more information, try '--help'.\n",
+		argument, usage);
+	return 1;
 }
+
+static int cli_unexpected_argument(const char *usage, const char *argument)
+{
+	fprintf(stderr,
+		"error: unexpected argument '%s'\n\n"
+		"Usage: %s\n\n"
+		"For more information, try '--help'.\n",
+		argument ? argument : "", usage);
+	return 1;
+}
+
 static int ki_ioctl(unsigned long request, void *arg);
 static void close_ki(void);
 static int ki_driver_fd = -1;
