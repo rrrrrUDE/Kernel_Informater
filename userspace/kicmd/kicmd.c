@@ -16,6 +16,7 @@
 #include "kicmd_def.h"
 
 static int ki_ioctl(unsigned long request, void *arg);
+static void close_ki(void);
 static int ki_driver_fd = -1;
 static bool ki_driver_checked;
 static int ensure_userd_dir(void);
@@ -23,7 +24,7 @@ static bool ki_debug_enabled(void);
 static int ioctl_value(unsigned long request,
 			       const char *kfunc, const char *key, const char *value);
 static int open_ki_checked(void);
-static int list_kernel_lines(int fd, unsigned int type)
+static int list_kernel_lines( unsigned int type)
 {
 	struct ki_ioc_list_line line;
 	unsigned int index = 0;
@@ -212,9 +213,9 @@ static int filesystem_func(int argc, char **argv)
 	return 0;
 }
 
-static int cmd_list_process(int fd, int argc, char **argv);
+static int cmd_list_process(int argc, char **argv);
 static int cmd_func_process(int argc, char **argv);
-static int check_kfunc_feature(int fd, const char *kfunc, unsigned int feature)
+static int check_kfunc_feature( const char *kfunc, unsigned int feature)
 {
 	struct ki_ioc_kfunc_features info;
 
@@ -286,26 +287,22 @@ static int ensure_userd_dir(void)
 static bool ki_debug_enabled(void)
 {
 	static int cached = -1;
-	int fd;
 	struct ki_ioc_debug debug;
 
 	if (cached >= 0)
 		return cached != 0;
 
-	fd = open(KI_DEVICE_PATH, O_RDONLY | O_CLOEXEC);
-	if (fd < 0) {
+	if (open_ki_checked() < 0) {
 		cached = 0;
 		return false;
 	}
 
 	memset(&debug, 0, sizeof(debug));
-	if (ki_ioctl( KI_IOC_GET_DEBUG, &debug) < 0) {
-		close(fd);
+	if (ki_ioctl(KI_IOC_GET_DEBUG, &debug) < 0) {
 		cached = 0;
 		return false;
 	}
 
-	close(fd);
 	cached = debug.enabled ? 1 : 0;
 	return cached != 0;
 }
@@ -335,7 +332,7 @@ static int open_ki_checked(void)
 		return -1;
 
 	memset(&version, 0, sizeof(version));
-	if (ioctl(ki_driver_fd, KI_IOC_GET_VERSION, &version) < 0) {
+	if (ki_ioctl(KI_IOC_GET_VERSION, &version) < 0) {
 		fprintf(stderr, "%s: Kernel Informater driver check failed: %s\n",
 			KICMD_NAME, strerror(errno));
 		close(ki_driver_fd);
@@ -360,22 +357,20 @@ static int cfg_set_active_and_ioctl(bool active);
 
 static int cfg_sync(void)
 {
-	int fd;
 	int ret;
 
-	fd = open_ki_checked();
-	if (fd < 0)
+	if (open_ki_checked() < 0)
 		return 1;
 
 	ret = ki_ioctl( KI_IOC_CONFIG_SYNC, NULL);
 	if (ret < 0) {
 		fprintf(stderr, "%s: config sync: %s\n",
 			KICMD_NAME, strerror(errno));
-		close(fd);
+		close_ki();
 		return 1;
 	}
 
-	close(fd);
+	close_ki();
 	return 0;
 }
 
@@ -686,7 +681,7 @@ memset(&v, 0, sizeof(v));
 	if (fd < 0)
 		return 1;
 	{
-		int feature_ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_FUNC);
+		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
 			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
 				KICMD_NAME, kfunc, strerror(-feature_ret));
@@ -715,7 +710,7 @@ memset(&v, 0, sizeof(v));
 	if (fd < 0)
 		return 1;
 	{
-		int feature_ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_FUNC);
+		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
 			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
 				KICMD_NAME, kfunc, strerror(-feature_ret));
@@ -743,7 +738,7 @@ memset(&v, 0, sizeof(v));
 	if (fd < 0)
 		return 1;
 	if (kfunc && *kfunc) {
-		int feature_ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_FUNC);
+		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
 			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
 				KICMD_NAME, kfunc, strerror(-feature_ret));
@@ -822,7 +817,7 @@ static int cmd_config(int argc, char **argv)
 			int fd = open_ki_checked();
 			if (fd < 0)
 				return 1;
-			ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_CONFIG);
+			ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_CONFIG);
 			close(fd);
 		}
 		if (!ret)
@@ -844,7 +839,7 @@ static int cmd_config(int argc, char **argv)
 			int fd = open_ki_checked();
 			if (fd < 0)
 				return 1;
-			ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_CONFIG);
+			ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_CONFIG);
 			close(fd);
 		}
 		if (!ret)
@@ -874,7 +869,7 @@ static int cmd_config(int argc, char **argv)
 			int fd = open_ki_checked();
 			if (fd < 0)
 				return 1;
-			ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_CONFIG);
+			ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_CONFIG);
 			close(fd);
 		}
 		if (ret)
@@ -908,7 +903,7 @@ static int cmd_config(int argc, char **argv)
 				int fd = open_ki_checked();
 				if (fd < 0)
 					return 1;
-				ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_CONFIG);
+				ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_CONFIG);
 				close(fd);
 			}
 			if (!ret)
@@ -950,7 +945,7 @@ cfg_list(argc == 3 ? argv[2] : NULL);
 	return fprintf(stderr, "%s: unknown config command: %s\n", KICMD_NAME, argv[1]), 1;
 }
 
-static int list_real_one(int fd, const char *kfunc, const char *key)
+static int list_real_one(const char *kfunc, const char *key)
 {
 	struct ki_ioc_real real;
 
@@ -959,7 +954,7 @@ static int list_real_one(int fd, const char *kfunc, const char *key)
 	strncpy(real.key, key, sizeof(real.key) - 1);
 
 	{
-		int feature_ret = check_kfunc_feature(fd, kfunc, KI_KFUNC_FEATURE_GET_REAL);
+		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_GET_REAL);
 		if (feature_ret)
 			return feature_ret;
 	}
@@ -970,7 +965,7 @@ static int list_real_one(int fd, const char *kfunc, const char *key)
 	return 0;
 }
 
-static int list_real_kfunc(int fd, const char *kfunc)
+static int list_real_kfunc(const char *kfunc)
 {
 	struct ki_ioc_real_key_info info;
 	unsigned int index = 0;
@@ -986,7 +981,7 @@ static int list_real_kfunc(int fd, const char *kfunc)
 				return 0;
 			return -errno;
 		}
-		ret = list_real_one(fd, info.kfunc, info.key);
+		ret = list_real_one(info.kfunc, info.key);
 		if (ret)
 			return ret;
 		index++;
@@ -1013,7 +1008,7 @@ static int cmd_list(int argc, char **argv)
 		fd = open_ki_checked();
 		if (fd < 0)
 			return 1;
-		ret = cmd_list_process(fd, argc - 1, argv + 1);
+		ret = cmd_list_process(argc - 1, argv + 1);
 		if (ret) {
 			fprintf(stderr, "%s: list process: %s\n",
 				KICMD_NAME, strerror(-ret));
@@ -1029,7 +1024,7 @@ static int cmd_list(int argc, char **argv)
 		fd = open_ki_checked();
 		if (fd < 0)
 			return 1;
-		ret = list_kernel_lines(fd, !strcmp(argv[1], "module") ? KI_LIST_MODULE : KI_LIST_FILESYSTEM);
+		ret = list_kernel_lines(!strcmp(argv[1], "module") ? KI_LIST_MODULE : KI_LIST_FILESYSTEM);
 		close(fd);
 		return ret ? 1 : 0;
 	}
@@ -1048,13 +1043,13 @@ static int cmd_list(int argc, char **argv)
 		if (argc > 3) {
 			ret = -EINVAL;
 		} else {
-			ret = cmd_list_process(fd, argc - 1, argv + 1);
+			ret = cmd_list_process(argc - 1, argv + 1);
 		}
 	} else if (kfunc) {
 		if (argc > 2)
 			ret = -EINVAL;
 		else
-			ret = list_real_kfunc(fd, kfunc);
+			ret = list_real_kfunc(kfunc);
 	} else {
 		for (;;) {
 			struct ki_ioc_kfunc_info info;
@@ -1072,7 +1067,7 @@ static int cmd_list(int argc, char **argv)
 			}
 			if (!(info.features & KI_KFUNC_FEATURE_GET_REAL))
 				continue;
-			ret = list_real_kfunc(fd, info.kfunc);
+			ret = list_real_kfunc(info.kfunc);
 			if (ret)
 				break;
 		}
@@ -1120,9 +1115,9 @@ static int parse_u64(const char *s, unsigned long long *value)
 	return 0;
 }
 
-static int process_check_func(int fd)
+static int process_check_func(void)
 {
-	int ret = check_kfunc_feature(fd, "process", KI_KFUNC_FEATURE_FUNC);
+	int ret = check_kfunc_feature("process", KI_KFUNC_FEATURE_FUNC);
 
 	if (ret)
 		fprintf(stderr, "%s: kfunc 'process' does not support func: %s\n",
@@ -1130,7 +1125,7 @@ static int process_check_func(int fd)
 	return ret;
 }
 
-static int list_process(int fd)
+static int list_process(void)
 {
 	struct ki_ioc_process_entry entry;
 	unsigned int index = 0;
@@ -1150,7 +1145,7 @@ static int list_process(int fd)
 	}
 }
 
-static int process_info(int fd, pid_t pid)
+static int process_info( pid_t pid)
 {
 	struct ki_ioc_process_info info;
 
@@ -1173,7 +1168,7 @@ static int process_info(int fd, pid_t pid)
 	return 0;
 }
 
-static int process_read_memory(int fd, pid_t pid,
+static int process_read_memory( pid_t pid,
 			       unsigned long long address, unsigned int size)
 {
 	struct ki_ioc_process_read read;
@@ -1199,7 +1194,7 @@ static int process_read_memory(int fd, pid_t pid,
 	return 0;
 }
 
-static int process_signal(int fd, pid_t pid, bool tree)
+static int process_signal( pid_t pid, bool tree)
 {
 	struct ki_ioc_process_pid request;
 
@@ -1211,7 +1206,7 @@ static int process_signal(int fd, pid_t pid, bool tree)
 	return 0;
 }
 
-static int cmd_list_process(int fd, int argc, char **argv)
+static int cmd_list_process(int argc, char **argv)
 {
 	pid_t pid;
 	int ret;
@@ -1220,9 +1215,9 @@ static int cmd_list_process(int fd, int argc, char **argv)
 		ret = parse_pid(argv[1], &pid);
 		if (ret)
 			return ret;
-		ret = process_info(fd, pid);
+		ret = process_info(pid);
 	} else if (argc == 1) {
-		ret = list_process(fd);
+		ret = list_process();
 	} else {
 		return -EINVAL;
 	}
@@ -1246,7 +1241,7 @@ static int cmd_func_process(int argc, char **argv)
 	if (fd < 0)
 		return -ENODEV;
 
-	ret = process_check_func(fd);
+	ret = process_check_func();
 	if (ret) {
 		close(fd);
 		return ret;
@@ -1256,7 +1251,7 @@ static int cmd_func_process(int argc, char **argv)
 		if (argc != 3 || parse_pid(argv[2], &pid))
 			ret = -EINVAL;
 		else
-			ret = process_info(fd, pid);
+			ret = process_info(pid);
 	} else if (!strcmp(argv[1], "read_memory")) {
 		if (argc != 5 || parse_pid(argv[2], &pid) ||
 		    parse_u64(argv[3], &address)) {
@@ -1267,13 +1262,13 @@ static int cmd_func_process(int argc, char **argv)
 			if (errno || *endp || !size || size > KI_UAPI_PROCESS_READ_MAX)
 				ret = -EINVAL;
 			else
-				ret = process_read_memory(fd, pid, address, (unsigned int)size);
+				ret = process_read_memory(pid, address, (unsigned int)size);
 		}
 	} else if (!strcmp(argv[1], "kill") || !strcmp(argv[1], "kill_tree")) {
 		if (argc != 3 || parse_pid(argv[2], &pid))
 			ret = -EINVAL;
 		else
-			ret = process_signal(fd, pid, !strcmp(argv[1], "kill_tree"));
+			ret = process_signal(pid, !strcmp(argv[1], "kill_tree"));
 	} else {
 		ret = -EINVAL;
 	}

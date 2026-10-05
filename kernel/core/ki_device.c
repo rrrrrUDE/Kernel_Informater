@@ -44,24 +44,10 @@ static int ki_copy_ioc_kfunc(struct ki_ioc_kfunc *dst, unsigned long arg)
 	return 0;
 }
 
-static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long ki_ioctl_dispatch(unsigned int nr, unsigned long arg)
 {
-	(void)file;
-
-	/* Keep the ioctl boundary strict, similar to KernelSU's dispatcher:
-	 * reject foreign command families and malformed encoded sizes before
-	 * touching userspace memory. */
-	if (_IOC_TYPE(cmd) != KI_IOC_MAGIC)
-		return -ENOTTY;
-	if (_IOC_NR(cmd) > KI_IOCTL_NR_LIST_LINE)
-		return -ENOTTY;
-	if (_IOC_SIZE(cmd) > PAGE_SIZE)
-		return -EINVAL;
-	if (_IOC_SIZE(cmd) && !arg)
-		return -EFAULT;
-
-	switch (cmd) {
-	case KI_IOC_GET_VERSION: {
+	switch (nr) {
+	case KI_IOCTL_NR_GET_VERSION: {
 		struct ki_ioc_version version = {
 			.major = KI_VERSION_MAJOR,
 			.minor = KI_VERSION_MINOR,
@@ -71,7 +57,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_GET_KFUNC_FEATURES: {
+	case KI_IOCTL_NR_GET_KFUNC_FEATURES: {
 		struct ki_ioc_kfunc_features info;
 		struct ki_kfunc *kfunc;
 
@@ -98,7 +84,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_GET_KFUNC_LIST: {
+	case KI_IOCTL_NR_GET_KFUNC_LIST: {
 		struct ki_ioc_kfunc_info info;
 		struct ki_kfunc *kfunc;
 		unsigned int index;
@@ -127,7 +113,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_GET_REAL_KEY_LIST: {
+	case KI_IOCTL_NR_GET_REAL_KEY_LIST: {
 		struct ki_ioc_real_key_info info;
 		struct ki_kfunc *kfunc;
 		char key[KI_UAPI_KEY_MAX];
@@ -155,7 +141,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_GET_DEBUG: {
+	case KI_IOCTL_NR_GET_DEBUG: {
 		struct ki_ioc_debug debug = {
 			.enabled = ki_debug ? 1 : 0,
 		};
@@ -163,34 +149,34 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_CONFIG_ON:
+	case KI_IOCTL_NR_CONFIG_ACTIVE:
 		return ki_config_active();
-	case KI_IOC_CONFIG_OFF:
+	case KI_IOCTL_NR_CONFIG_INACTIVE:
 		return ki_config_inactive();
-	case KI_IOC_CONFIG_SYNC:
+	case KI_IOCTL_NR_CONFIG_SYNC:
 		return ki_config_reload();
-	case KI_IOC_FUNC_VALUE_SET: {
+	case KI_IOCTL_NR_FUNC_SET: {
 		struct ki_ioc_value value;
 		int ret = ki_copy_ioc_value(&value, arg);
 		if (ret)
 			return ret;
 		return ki_func_set(value.kfunc, value.key, value.value);
 	}
-	case KI_IOC_FUNC_VALUE_UNSET: {
+	case KI_IOCTL_NR_FUNC_UNSET: {
 		struct ki_ioc_key key;
 		int ret = ki_copy_ioc_key(&key, arg);
 		if (ret)
 			return ret;
 		return ki_func_unset(key.kfunc, key.key);
 	}
-	case KI_IOC_FUNC_KFUNC_RESET: {
+	case KI_IOCTL_NR_FUNC_RESET: {
 		struct ki_ioc_kfunc kfunc;
 		int ret = ki_copy_ioc_kfunc(&kfunc, arg);
 		if (ret)
 			return ret;
 		return ki_func_reset(kfunc.kfunc);
 	}
-	case KI_IOC_GET_REAL_INFO: {
+	case KI_IOCTL_NR_GET_REAL: {
 		struct ki_ioc_real real;
 		int ret;
 
@@ -209,7 +195,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_PROCESS_LIST: {
+	case KI_IOCTL_NR_PROCESS_LIST: {
 		struct ki_ioc_process_entry entry;
 		int ret;
 
@@ -222,7 +208,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_PROCESS_INFO: {
+	case KI_IOCTL_NR_PROCESS_INFO: {
 		struct ki_ioc_process_info info;
 		int ret;
 
@@ -235,7 +221,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_PROCESS_READ_MEMORY: {
+	case KI_IOCTL_NR_PROCESS_READ_MEMORY: {
 		struct ki_ioc_process_read *read;
 		int ret;
 
@@ -259,7 +245,7 @@ out_process_read:
 		kfree(read);
 		return ret;
 	}
-	case KI_IOC_LIST_LINE: {
+	case KI_IOCTL_NR_LIST_LINE: {
 		struct ki_ioc_list_line line;
 		int ret;
 
@@ -277,14 +263,14 @@ out_process_read:
 			return -EFAULT;
 		return 0;
 	}
-	case KI_IOC_PROCESS_KILL:
-	case KI_IOC_PROCESS_KILL_TREE: {
+	case KI_IOCTL_NR_PROCESS_KILL:
+	case KI_IOCTL_NR_PROCESS_KILL_TREE: {
 		struct ki_ioc_process_pid pid;
 		int ret;
 
 		if (copy_from_user(&pid, (void __user *)arg, sizeof(pid)))
 			return -EFAULT;
-		if (cmd == KI_IOC_PROCESS_KILL)
+		if (nr == KI_IOCTL_NR_PROCESS_KILL)
 			ret = ki_process_kill(pid.pid);
 		else
 			ret = ki_process_kill_tree(pid.pid);
@@ -295,11 +281,36 @@ out_process_read:
 	}
 }
 
+static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	(void)file;
+
+	/* Keep the external ABI stable while separating entry validation from
+	 * command dispatch, following the KSU-style ioctl layering. */
+	if (_IOC_TYPE(cmd) != KI_IOC_MAGIC)
+		return -ENOTTY;
+	if (_IOC_NR(cmd) > KI_IOCTL_NR_LIST_LINE)
+		return -ENOTTY;
+	if (_IOC_SIZE(cmd) > PAGE_SIZE)
+		return -EINVAL;
+	if (_IOC_SIZE(cmd) && !arg)
+		return -EFAULT;
+
+	return ki_ioctl_dispatch(_IOC_NR(cmd), arg);
+}
+
+#ifdef CONFIG_COMPAT
+static long ki_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	return ki_ioctl(file, cmd, arg);
+}
+#endif
+
 static const struct file_operations ki_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = ki_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = ki_ioctl,
+	.compat_ioctl = ki_compat_ioctl,
 #endif
 };
 
