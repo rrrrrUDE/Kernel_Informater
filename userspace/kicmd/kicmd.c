@@ -849,8 +849,7 @@ static int cmd_safemode(int argc, char **argv)
 		return 0;
 	}
 
-	return fprintf(stderr, "%s: unknown safemode command: %s\n",
-		       KICMD_NAME, argv[1]), 1;
+	{ static const char *const commands[] = { KICMD_SUB_ENABLE, KICMD_SUB_DISABLE, KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd safemode <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
 
 static int cmd_config(int argc, char **argv)
@@ -1000,7 +999,7 @@ cfg_list(argc == 3 ? argv[2] : NULL);
 		return 0;
 	}
 
-	return fprintf(stderr, "%s: unknown config command: %s\n", KICMD_NAME, argv[1]), 1;
+	{ static const char *const commands[] = { KICMD_SUB_DEL, KICMD_SUB_SET, KICMD_SUB_UNSET, KICMD_SUB_RESET, KICMD_SUB_ACTIVE, KICMD_SUB_INACTIVE, KICMD_SUB_LIST, KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd config <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
 
 static int list_real_one(const char *kfunc, const char *key)
@@ -1376,7 +1375,7 @@ static int cmd_func(int argc, char **argv)
 		return ret;
 	}
 
-	return fprintf(stderr, "%s: unknown func command: %s\n", KICMD_NAME, argv[1]), 1;
+	{ static const char *const commands[] = { KICMD_SUB_SET, KICMD_SUB_UNSET, KICMD_SUB_RESET, "process", "module", "filesystem", KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd func <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
 
 static int cmd_help(int argc, char **argv)
