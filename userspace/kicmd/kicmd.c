@@ -965,7 +965,7 @@ static int list_real_one(const char *kfunc, const char *key)
 	return 0;
 }
 
-static int list_real_kfunc(int fd, const char *kfunc)
+static int list_real_kfunc(const char *kfunc)
 {
 	struct ki_ioc_real_key_info info;
 	unsigned int index = 0;
@@ -1049,7 +1049,7 @@ static int cmd_list(int argc, char **argv)
 		if (argc > 2)
 			ret = -EINVAL;
 		else
-			ret = list_real_kfunc(fd, kfunc);
+			ret = list_real_kfunc(kfunc);
 	} else {
 		for (;;) {
 			struct ki_ioc_kfunc_info info;
@@ -1067,7 +1067,7 @@ static int cmd_list(int argc, char **argv)
 			}
 			if (!(info.features & KI_KFUNC_FEATURE_GET_REAL))
 				continue;
-			ret = list_real_kfunc(fd, info.kfunc);
+			ret = list_real_kfunc(info.kfunc);
 			if (ret)
 				break;
 		}
