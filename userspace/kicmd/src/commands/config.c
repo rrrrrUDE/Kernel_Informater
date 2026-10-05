@@ -1,3 +1,4 @@
+#include "../../include/kicmd_internal.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -314,8 +315,7 @@ cfg_list(argc == 3 ? argv[2] : NULL);
 	}
 
 	{ static const char *const commands[] = { KICMD_SUB_DEL, KICMD_SUB_SET, KICMD_SUB_UNSET, KICMD_SUB_RESET, KICMD_SUB_ACTIVE, KICMD_SUB_INACTIVE, KICMD_SUB_LIST, KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd config <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
-}#include "../../include/kicmd_internal.h"
-#include <errno.h>
+}#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
