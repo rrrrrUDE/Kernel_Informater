@@ -434,7 +434,7 @@ static int filesystem_func(int argc, char **argv)
 
 	fd = open_ki_checked();
 	if (fd < 0)
-		return -ENODEV;
+		return 1;
 
 	memset(&real, 0, sizeof(real));
 	strncpy(real.kfunc, "filesystem", sizeof(real.kfunc) - 1);
