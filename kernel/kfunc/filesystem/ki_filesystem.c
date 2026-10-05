@@ -64,7 +64,7 @@ static int ki_filesystem_config_set(const char *key, const char *value)
 	mutex_lock(&ki_fs_lock);
 	old = rcu_dereference_protected(ki_fs_paths,
 					lockdep_is_held(&ki_fs_lock));
-		memcpy(new_paths, old, sizeof(*new_paths));
+		memcpy(new_paths->paths, old->paths, sizeof(new_paths->paths));
 		ki_fs_strscpy(new_paths->paths[index], value,
 				      sizeof(new_paths->paths[index]));
 	rcu_assign_pointer(ki_fs_paths, new_paths);
