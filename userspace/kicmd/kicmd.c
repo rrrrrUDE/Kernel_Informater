@@ -310,7 +310,7 @@ static int module_func(int argc, char **argv)
 	if (ret < 0) {
 		int error = errno;
 		module_report_error("insmod", argv[2], error);
-		return -error;
+		return 1;
 	}
 	debug_log("module insmod %s", argv[2]);
 	return 0;
@@ -1351,11 +1351,7 @@ static int cli_parse_u64(const char *usage, const char *argument,
 
 static int process_check_func(void)
 {
-	int ret = check_kfunc_feature("process", KI_KFUNC_FEATURE_FUNC);
-
-	if (ret)
-		fprintf(stderr, "Error: kfunc 'process' does not support func: %s\n", strerror(-ret));
-	return ret;
+	return check_kfunc_feature("process", KI_KFUNC_FEATURE_FUNC);
 }
 
 static int list_process(void)
