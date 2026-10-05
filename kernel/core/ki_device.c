@@ -2,6 +2,7 @@
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
+#include <linux/ioctl.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -46,6 +47,18 @@ static int ki_copy_ioc_kfunc(struct ki_ioc_kfunc *dst, unsigned long arg)
 static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	(void)file;
+
+	/* Keep the ioctl boundary strict, similar to KernelSU's dispatcher:
+	 * reject foreign command families and malformed encoded sizes before
+	 * touching userspace memory. */
+	if (_IOC_TYPE(cmd) != KI_IOC_MAGIC)
+		return -ENOTTY;
+	if (_IOC_NR(cmd) > KI_IOCTL_NR_LIST_LINE)
+		return -ENOTTY;
+	if (_IOC_SIZE(cmd) > PAGE_SIZE)
+		return -EINVAL;
+	if (_IOC_SIZE(cmd) && !arg)
+		return -EFAULT;
 
 	switch (cmd) {
 	case KI_IOC_GET_VERSION: {
