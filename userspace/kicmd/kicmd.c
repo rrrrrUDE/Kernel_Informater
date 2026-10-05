@@ -128,6 +128,8 @@ static int cli_result(int ret)
 	return ret;
 }
 
+static int open_ki_checked(void);
+
 static int require_ki_driver(void)
 {
 	if (open_ki_checked() < 0)
@@ -322,8 +324,6 @@ static int module_func(int argc, char **argv)
 	debug_log("module insmod %s", argv[2]);
 	return 0;
 }
-
-static int open_ki_checked(void);
 
 static int filesystem_mount(int argc, char **argv)
 {
@@ -1013,6 +1013,9 @@ static int cmd_safemode(int argc, char **argv)
 		fputs(kicmd_help_safemode, stdout);
 		return argc < 2 ? 1 : 0;
 	}
+
+	if (require_ki_driver() < 0)
+		return -ENODEV;
 
 	ret = ensure_userd_dir();
 	if (ret)
