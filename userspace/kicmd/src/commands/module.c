@@ -1,4 +1,4 @@
-#include "../kicmd_internal.h"
+#include "../../include/kicmd_internal.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -8,6 +8,49 @@
 #include <sys/mount.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+void module_report_error(const char *operation, const char *name, int error)
+{
+	const char *reason = strerror(error);
+	int kmsg = -1;
+	char buf[4096];
+	ssize_t n;
+
+	fprintf(stderr, "Error: %s %s: %s\n",
+		operation, name ? name : "module", reason);
+
+	/*
+	 * Like ksud, inspect the kernel log after a module-load failure so
+	 * users get the actual kernel-side reason (vermagic, unknown symbol,
+	 * invalid format, etc.) instead of only errno.
+	 */
+	if (strcmp(operation, "insmod"))
+		return;
+
+	kmsg = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+	if (kmsg < 0)
+		return;
+
+	while ((n = read(kmsg, buf, sizeof(buf) - 1)) > 0) {
+		buf[n] = '\0';
+		for (char *line = buf; line;) {
+			char *next = strchr(line, '\n');
+			if (next)
+				*next++ = '\0';
+			if (strstr(line, "Unknown symbol") ||
+			    strstr(line, "version magic") ||
+			    strstr(line, "invalid module") ||
+			    strstr(line, "module verification failed")) {
+				fprintf(stderr, "Error: kernel: %s\n", line);
+			}
+			line = next;
+			if (!next)
+				break;
+		}
+	}
+
+	close(kmsg);
+}
 
 int module_func(int argc, char **argv)
 {

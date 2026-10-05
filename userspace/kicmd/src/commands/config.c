@@ -1,4 +1,4 @@
-#include "../kicmd_internal.h"
+#include "../../include/kicmd_internal.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -40,7 +40,7 @@ int cfg_set_active_and_ioctl(bool active)
 		ret = cfg_set_active(false);
 		if (ret) {
 			fprintf(stderr, "Error: save config: %s\n", strerror(-ret));
-			close(fd);
+			close_ki();
 			return 1;
 		}
 		ret = ki_ioctl( KI_IOC_CONFIG_OFF, NULL);
@@ -48,10 +48,10 @@ int cfg_set_active_and_ioctl(bool active)
 			int saved_errno = errno;
 			cfg_set_active(true);
 			fprintf(stderr, "Error: config inactive: %s\n", strerror(saved_errno));
-			close(fd);
+			close_ki();
 			return 1;
 		}
-		close(fd);
+		close_ki();
 		printf("Kernel Informater: persistent configuration deactivated and reset\n");
 		return 0;
 	}
@@ -59,7 +59,7 @@ int cfg_set_active_and_ioctl(bool active)
 	ret = cfg_set_active(true);
 	if (ret) {
 		fprintf(stderr, "Error: save config: %s\n", strerror(-ret));
-		close(fd);
+		close_ki();
 		return 1;
 	}
 
@@ -68,11 +68,11 @@ int cfg_set_active_and_ioctl(bool active)
 		int saved_errno = errno;
 		cfg_set_active(false);
 		fprintf(stderr, "Error: config active: %s\n", strerror(saved_errno));
-		close(fd);
+		close_ki();
 		return 1;
 	}
 
-	close(fd);
+	close_ki();
 	if (ret > 0) {
 		printf("Kernel Informater: persistent configuration already active; no operation performed\n");
 		return 0;
@@ -187,7 +187,7 @@ int cmd_config(int argc, char **argv)
 			if (fd < 0)
 				return 1;
 			ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_CONFIG);
-			close(fd);
+			close_ki();
 		}
 		if (!ret)
 			ret = cfg_set(kfunc, key, value);
@@ -212,7 +212,7 @@ int cmd_config(int argc, char **argv)
 			if (fd < 0)
 				return 1;
 			ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_CONFIG);
-			close(fd);
+			close_ki();
 		}
 		if (!ret)
 			ret = cfg_unset(kfunc, key);
@@ -242,7 +242,7 @@ int cmd_config(int argc, char **argv)
 			if (fd < 0)
 				return 1;
 			ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_CONFIG);
-			close(fd);
+			close_ki();
 		}
 		if (ret)
 			return fprintf(stderr, "Error: kfunc '%s' does not support config: %s\n", kfunc, strerror(-ret)), 1;
@@ -274,7 +274,7 @@ int cmd_config(int argc, char **argv)
 				if (fd < 0)
 					return 1;
 				ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_CONFIG);
-				close(fd);
+				close_ki();
 			}
 			if (!ret)
 				ret = cfg_reset_kfunc(kfunc);

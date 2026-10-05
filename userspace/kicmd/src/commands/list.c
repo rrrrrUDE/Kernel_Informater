@@ -1,4 +1,5 @@
-#include "../kicmd_internal.h"
+#include "../../include/kicmd_internal.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -95,10 +96,10 @@ int cmd_list(int argc, char **argv)
 		ret = cmd_list_process(argc - 1, argv + 1);
 		if (ret) {
 			fprintf(stderr, "Error: list process: %s\n", strerror(-ret));
-			close(fd);
+			close_ki();
 			return 1;
 		}
-		close(fd);
+		close_ki();
 		debug_log("list process%s%s",
 			argc == 3 ? " " : "", argc == 3 ? argv[2] : "");
 		return 0;
@@ -108,7 +109,7 @@ int cmd_list(int argc, char **argv)
 		if (fd < 0)
 			return 1;
 		ret = list_kernel_lines(!strcmp(argv[1], "module") ? KI_LIST_MODULE : KI_LIST_FILESYSTEM);
-		close(fd);
+		close_ki();
 		return ret ? 1 : 0;
 	}
 	if (argc > 2)
@@ -155,11 +156,11 @@ int cmd_list(int argc, char **argv)
 	}
 
 	if (ret) {
-		close(fd);
+		close_ki();
 		return cli_result(ret);
 	}
 
-	close(fd);
+	close_ki();
 	debug_log("list %s", kfunc ? kfunc : "all");
 	return 0;
 }
