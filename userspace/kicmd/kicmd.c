@@ -128,6 +128,13 @@ static int cli_result(int ret)
 	return ret;
 }
 
+static int require_ki_driver(void)
+{
+	if (open_ki_checked() < 0)
+		return -ENODEV;
+	return 0;
+}
+
 static int ki_ioctl(unsigned long request, void *arg);
 static void close_ki(void);
 static int ki_driver_fd = -1;
@@ -397,7 +404,6 @@ static int filesystem_mount(int argc, char **argv)
 	fd = open_ki_checked();
 	if (fd < 0)
 		return 1;
-
 	ret = ki_ioctl(KI_IOC_FILESYSTEM_MOUNT, &request);
 	close_ki();
 	if (ret < 0)
@@ -797,8 +803,7 @@ static int write_config_with_transform(const char *replace_key,
 				if (!reset_all && line[0] != '#') {
 					fputs(line, out);
 				}
-				continue;
-			}
+				continue;			}
 
 			if (reset_all)
 				continue;
@@ -1056,6 +1061,9 @@ static int cmd_config(int argc, char **argv)
 		return argc < 2 ? 1 : 0;
 	}
 
+	if (require_ki_driver() < 0)
+		return -ENODEV;
+
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
 		if (argc < 5)
@@ -1198,7 +1206,6 @@ cfg_list(argc == 3 ? argv[2] : NULL);
 
 	{ static const char *const commands[] = { KICMD_SUB_DEL, KICMD_SUB_SET, KICMD_SUB_UNSET, KICMD_SUB_RESET, KICMD_SUB_ACTIVE, KICMD_SUB_INACTIVE, KICMD_SUB_LIST, KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd config <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
-
 static int list_real_one(const char *kfunc, const char *key)
 {
 	struct ki_ioc_real real;
@@ -1254,6 +1261,9 @@ static int cmd_list(int argc, char **argv)
 		fputs(kicmd_help_list, stdout);
 		return 0;
 	}
+	if (require_ki_driver() < 0)
+		return -ENODEV;
+
 	if (argc >= 2 && !strcmp(argv[1], "process")) {
 		if (argc > 3)
 			return cli_unexpected_argument("kicmd list process [<pid>]", argv[3]);
@@ -1593,6 +1603,13 @@ static int cmd_func(int argc, char **argv)
 		fputs(kicmd_help_func, stdout);
 		return argc < 2 ? 1 : 0;
 	}
+
+	/*
+	 * module operations are native module syscalls and do not depend on
+	 * Kernel Informater, so they intentionally bypass the driver check.
+	 */
+	if (strcmp(argv[1], "module") && require_ki_driver() < 0)
+		return -ENODEV;
 
 	if (!strcmp(argv[1], "process"))
 		return cmd_func_process(argc - 1, argv + 1);
