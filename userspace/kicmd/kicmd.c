@@ -16,6 +16,8 @@
 #include "kicmd_def.h"
 
 static int ki_ioctl(int fd, unsigned long request, void *arg);
+static int ensure_userd_dir(void);
+static bool ki_debug_enabled(void);
 static int ioctl_value(unsigned long request,
 			       const char *kfunc, const char *key, const char *value);
 static int open_ki_checked(void);
@@ -38,6 +40,78 @@ static int list_kernel_lines(int fd, unsigned int type)
 	}
 }
 
+static void module_report_error(const char *operation, const char *name, int error)
+{
+	const char *reason = strerror(error);
+	int kmsg = -1;
+	char buf[4096];
+	ssize_t n;
+
+	fprintf(stderr, "%s: %s %s: %s\n",
+		KICMD_NAME, operation, name ? name : "module", reason);
+
+	/*
+	 * Like ksud, inspect the kernel log after a module-load failure so
+	 * users get the actual kernel-side reason (vermagic, unknown symbol,
+	 * invalid format, etc.) instead of only errno.
+	 */
+	if (strcmp(operation, "insmod"))
+		return;
+
+	kmsg = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+	if (kmsg < 0)
+		return;
+
+	while ((n = read(kmsg, buf, sizeof(buf) - 1)) > 0) {
+		buf[n] = '\0';
+		for (char *line = buf; line;) {
+			char *next = strchr(line, '\n');
+			if (next)
+				*next++ = '\0';
+			if (strstr(line, "Unknown symbol") ||
+			    strstr(line, "version magic") ||
+			    strstr(line, "invalid module") ||
+			    strstr(line, "module verification failed")) {
+				fprintf(stderr, "%s: kernel: %s\n", KICMD_NAME, line);
+			}
+			line = next;
+			if (!next)
+				break;
+		}
+	}
+
+	close(kmsg);
+}
+
+static void debug_log(const char *fmt, ...)
+{
+	FILE *fp;
+	va_list ap;
+	time_t now;
+	struct tm tm;
+	char ts[64];
+
+	if (!ki_debug_enabled())
+		return;
+
+	if (ensure_userd_dir())
+		return;
+
+	fp = fopen(KI_USER_DEBUG_LOG, "a");
+	if (!fp)
+		return;
+
+	now = time(NULL);
+	localtime_r(&now, &tm);
+	strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &tm);
+	fprintf(fp, "[%s] ", ts);
+	va_start(ap, fmt);
+	vfprintf(fp, fmt, ap);
+	va_end(ap);
+	fputc('\n', fp);
+	fclose(fp);
+}
+
 static int module_func(int argc, char **argv)
 {
 	int fd;
@@ -51,8 +125,12 @@ static int module_func(int argc, char **argv)
 			return -EINVAL;
 #ifdef SYS_delete_module
 		ret = (int)syscall(SYS_delete_module, argv[2], 0);
-		if (ret < 0)
-			return -errno;
+		if (ret < 0) {
+			int error = errno;
+			module_report_error("rmmod", argv[2], error);
+			return -error;
+		}
+		debug_log("module rmmod %s", argv[2]);
 		return 0;
 #else
 		return -ENOSYS;
@@ -91,8 +169,12 @@ static int module_func(int argc, char **argv)
 	errno = ENOSYS;
 #endif
 	close(fd);
-	if (ret < 0)
-		return -errno;
+	if (ret < 0) {
+		int error = errno;
+		module_report_error("insmod", argv[2], error);
+		return -error;
+	}
+	debug_log("module insmod %s", argv[2]);
 	return 0;
 }
 
@@ -226,34 +308,6 @@ static bool ki_debug_enabled(void)
 	return cached != 0;
 }
 
-static void debug_log(const char *fmt, ...)
-{
-	FILE *fp;
-	va_list ap;
-	time_t now;
-	struct tm tm;
-	char ts[64];
-
-	if (!ki_debug_enabled())
-		return;
-
-	if (ensure_userd_dir())
-		return;
-
-	fp = fopen(KI_USER_DEBUG_LOG, "a");
-	if (!fp)
-		return;
-
-	now = time(NULL);
-	localtime_r(&now, &tm);
-	strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &tm);
-	fprintf(fp, "[%s] ", ts);
-	va_start(ap, fmt);
-	vfprintf(fp, fmt, ap);
-	va_end(ap);
-	fputc('\n', fp);
-	fclose(fp);
-}
 static int open_ki(void)
 {
 	int fd = open(KI_DEVICE_PATH, O_RDWR | O_CLOEXEC);
@@ -375,6 +429,20 @@ static int cfg_set_active_and_ioctl(bool active)
 static int ki_ioctl(int fd, unsigned long request, void *arg)
 {
 	int ret;
+
+	/*
+	 * KernelSU keeps its userspace control path intentionally thin:
+	 * obtain the driver fd, issue the UAPI request, and centralize the
+	 * EINTR handling/error boundary here.
+	 *
+	 * Keep the existing fd lifetime model in kicmd for now, so this is
+	 * an implementation refactor only. KI_IOC_* request codes, numbers,
+	 * payload structures and ABI are unchanged.
+	 */
+	if (fd < 0) {
+		errno = EBADF;
+		return -1;
+	}
 
 	do {
 		ret = ioctl(fd, request, arg);
