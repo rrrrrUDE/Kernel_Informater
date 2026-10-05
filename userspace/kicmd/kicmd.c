@@ -471,8 +471,7 @@ static int print_version(void)
 
 	memset(&version, 0, sizeof(version));
 	if (ki_ioctl( KI_IOC_GET_VERSION, &version) < 0) {
-		fprintf(stderr, "%s: get kernel version: %s\n",
-			KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: get kernel version: %s\n", strerror(errno));
 		close_ki();
 		return 1;
 	}
@@ -495,16 +494,14 @@ static int ensure_userd_dir(void)
 
 	if (!stat(KI_USER_DIR, &st)) {
 		if (!S_ISDIR(st.st_mode)) {
-			fprintf(stderr, "%s: %s is not a directory\n",
-				KICMD_NAME, KI_USER_DIR);
+			fprintf(stderr, "Error: %s is not a directory\n", KI_USER_DIR);
 			return -ENOTDIR;
 		}
 		return 0;
 	}
 
 	if (mkdir(KI_USER_DIR, 0700) && errno != EEXIST) {
-		fprintf(stderr, "%s: mkdir %s: %s\n",
-			KICMD_NAME, KI_USER_DIR, strerror(errno));
+		fprintf(stderr, "Error: mkdir %s: %s\n", KI_USER_DIR, strerror(errno));
 		return -errno;
 	}
 
@@ -560,8 +557,7 @@ static int open_ki_checked(void)
 
 	memset(&version, 0, sizeof(version));
 	if (ki_ioctl(KI_IOC_GET_VERSION, &version) < 0) {
-		fprintf(stderr, "%s: Kernel Informater driver check failed: %s\n",
-			KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: Kernel Informater driver check failed: %s\n", strerror(errno));
 		close(ki_driver_fd);
 		ki_driver_fd = -1;
 		return -1;
@@ -591,8 +587,7 @@ static int cfg_sync(void)
 
 	ret = ki_ioctl( KI_IOC_CONFIG_SYNC, NULL);
 	if (ret < 0) {
-		fprintf(stderr, "%s: config sync: %s\n",
-			KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: config sync: %s\n", strerror(errno));
 		close_ki();
 		return 1;
 	}
@@ -613,8 +608,7 @@ static int cfg_set_active_and_ioctl(bool active)
 	if (!active) {
 		ret = cfg_set_active(false);
 		if (ret) {
-			fprintf(stderr, "%s: save config: %s\n",
-				KICMD_NAME, strerror(-ret));
+			fprintf(stderr, "Error: save config: %s\n", strerror(-ret));
 			close(fd);
 			return 1;
 		}
@@ -622,8 +616,7 @@ static int cfg_set_active_and_ioctl(bool active)
 		if (ret < 0) {
 			int saved_errno = errno;
 			cfg_set_active(true);
-			fprintf(stderr, "%s: config inactive: %s\n",
-				KICMD_NAME, strerror(saved_errno));
+			fprintf(stderr, "Error: config inactive: %s\n", strerror(saved_errno));
 			close(fd);
 			return 1;
 		}
@@ -634,8 +627,7 @@ static int cfg_set_active_and_ioctl(bool active)
 
 	ret = cfg_set_active(true);
 	if (ret) {
-		fprintf(stderr, "%s: save config: %s\n",
-			KICMD_NAME, strerror(-ret));
+		fprintf(stderr, "Error: save config: %s\n", strerror(-ret));
 		close(fd);
 		return 1;
 	}
@@ -644,8 +636,7 @@ static int cfg_set_active_and_ioctl(bool active)
 	if (ret < 0) {
 		int saved_errno = errno;
 		cfg_set_active(false);
-		fprintf(stderr, "%s: config active: %s\n",
-			KICMD_NAME, strerror(saved_errno));
+		fprintf(stderr, "Error: config active: %s\n", strerror(saved_errno));
 		close(fd);
 		return 1;
 	}
@@ -870,8 +861,7 @@ static void cfg_list(const char *kfunc)
 			printf("(no persistent configuration)\n");
 			return;
 		}
-		fprintf(stderr, "%s: read %s: %s\n",
-			KICMD_NAME, KI_USER_CONFIG, strerror(errno));
+		fprintf(stderr, "Error: read %s: %s\n", KI_USER_CONFIG, strerror(errno));
 		return;
 	}
 
@@ -910,14 +900,13 @@ memset(&v, 0, sizeof(v));
 	{
 		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
-			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
-				KICMD_NAME, kfunc, strerror(-feature_ret));
+			fprintf(stderr, "Error: kfunc '%s' does not support func: %s\n", kfunc, strerror(-feature_ret));
 			close(fd);
 			return 1;
 		}
 	}
 	if (ki_ioctl( request, &v) < 0) {
-		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: ioctl: %s\n", strerror(errno));
 		close(fd);
 		return 1;
 	}
@@ -939,14 +928,13 @@ memset(&v, 0, sizeof(v));
 	{
 		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
-			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
-				KICMD_NAME, kfunc, strerror(-feature_ret));
+			fprintf(stderr, "Error: kfunc '%s' does not support func: %s\n", kfunc, strerror(-feature_ret));
 			close_ki();
 			return 1;
 		}
 	}
 	if (ki_ioctl( request, &v) < 0) {
-		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: ioctl: %s\n", strerror(errno));
 		close_ki();
 		return 1;
 	}
@@ -967,14 +955,13 @@ memset(&v, 0, sizeof(v));
 	if (kfunc && *kfunc) {
 		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
-			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
-				KICMD_NAME, kfunc, strerror(-feature_ret));
+			fprintf(stderr, "Error: kfunc '%s' does not support func: %s\n", kfunc, strerror(-feature_ret));
 			close_ki();
 			return 1;
 		}
 	}
 	if (ki_ioctl( request, &v) < 0) {
-		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: ioctl: %s\n", strerror(errno));
 		close_ki();
 		return 1;
 	}
@@ -1057,7 +1044,7 @@ static int cmd_config(int argc, char **argv)
 		if (!ret)
 			ret = cfg_set(kfunc, key, value);
 		if (ret)
-			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: save config: %s\n", strerror(-ret)), 1;
 		ret = cfg_sync();
 		if (ret)
 			return ret;
@@ -1082,7 +1069,7 @@ static int cmd_config(int argc, char **argv)
 		if (!ret)
 			ret = cfg_unset(kfunc, key);
 		if (ret)
-			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: save config: %s\n", strerror(-ret)), 1;
 		ret = cfg_sync();
 		if (ret)
 			return ret;
@@ -1110,16 +1097,14 @@ static int cmd_config(int argc, char **argv)
 			close(fd);
 		}
 		if (ret)
-			return fprintf(stderr, "%s: kfunc '%s' does not support config: %s\n",
-				KICMD_NAME, kfunc, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: kfunc '%s' does not support config: %s\n", kfunc, strerror(-ret)), 1;
 
 		if (key && *key)
 			ret = cfg_unset(kfunc, key);
 		else
 			ret = cfg_reset_kfunc(kfunc);
 		if (ret)
-			return fprintf(stderr, "%s: delete config: %s\n",
-				KICMD_NAME, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: delete config: %s\n", strerror(-ret)), 1;
 
 		ret = cfg_sync();
 		if (ret)
@@ -1146,7 +1131,7 @@ static int cmd_config(int argc, char **argv)
 			if (!ret)
 				ret = cfg_reset_kfunc(kfunc);
 			if (ret)
-				return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+				return fprintf(stderr, "Error: save config: %s\n", strerror(-ret)), 1;
 			ret = cfg_sync();
 		if (ret)
 			return ret;
@@ -1155,7 +1140,7 @@ static int cmd_config(int argc, char **argv)
 		}
 		ret = cfg_reset_all();
 		if (ret)
-			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: save config: %s\n", strerror(-ret)), 1;
 		ret = cfg_sync();
 		if (ret)
 			return ret;
@@ -1240,17 +1225,14 @@ static int cmd_list(int argc, char **argv)
 		return 0;
 	}
 	if (argc >= 2 && !strcmp(argv[1], "process")) {
-		if (argc > 3) {
-			fputs(kicmd_help_list, stdout);
-			return 1;
-		}
+		if (argc > 3)
+			return cli_unexpected_argument("kicmd list process [<pid>]", argv[3]);
 		fd = open_ki_checked();
 		if (fd < 0)
 			return 1;
 		ret = cmd_list_process(argc - 1, argv + 1);
 		if (ret) {
-			fprintf(stderr, "%s: list process: %s\n",
-				KICMD_NAME, strerror(-ret));
+			fprintf(stderr, "Error: list process: %s\n", strerror(-ret));
 			close(fd);
 			return 1;
 		}
@@ -1267,10 +1249,8 @@ static int cmd_list(int argc, char **argv)
 		close(fd);
 		return ret ? 1 : 0;
 	}
-	if (argc > 2) {
-		fputs(kicmd_help_list, stdout);
-		return 1;
-	}
+	if (argc > 2)
+		return cli_unexpected_argument("kicmd list [<kfunc>]", argv[2]);
 	if (argc == 2)
 		kfunc = argv[1];
 
@@ -1313,8 +1293,7 @@ static int cmd_list(int argc, char **argv)
 	}
 
 	if (ret) {
-		fprintf(stderr, "%s: list%s%s: %s\n",
-			KICMD_NAME, kfunc ? " " : "", kfunc ? kfunc : "all",
+		fprintf(stderr, "Error: list%s%s: %s\n", kfunc ? " " : "", kfunc ? kfunc : "all",
 			strerror(-ret));
 		close(fd);
 		return 1;
@@ -1359,8 +1338,7 @@ static int process_check_func(void)
 	int ret = check_kfunc_feature("process", KI_KFUNC_FEATURE_FUNC);
 
 	if (ret)
-		fprintf(stderr, "%s: kfunc 'process' does not support func: %s\n",
-			KICMD_NAME, strerror(-ret));
+		fprintf(stderr, "Error: kfunc 'process' does not support func: %s\n", strerror(-ret));
 	return ret;
 }
 
