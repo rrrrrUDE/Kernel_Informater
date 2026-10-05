@@ -1,3 +1,4 @@
+#include "../../include/kicmd_internal.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -137,8 +138,7 @@ int module_func(int argc, char **argv)
 	}
 	debug_log("module insmod %s", argv[2]);
 	return 0;
-}#include "../../include/kicmd_internal.h"
-void module_report_error(const char *operation, const char *name, int error)
+}void module_report_error(const char *operation, const char *name, int error)
 {
 	const char *reason = strerror(error);
 	int kmsg = -1;
