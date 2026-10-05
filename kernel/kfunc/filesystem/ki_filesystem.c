@@ -14,6 +14,7 @@
 #include <linux/string.h>
 #include <linux/version.h>
 #include <linux/user_namespace.h>
+#include <linux/rcupdate.h>
 
 #include "ki.h"
 #include "ki_fs_compat.h"
@@ -31,11 +32,19 @@
  * from the kernel here.  This keeps the kfunc usable in both built-in and
  * modular integration environments and avoids a shell/userspace dependency.
  */
-static char ki_fs_paths[KI_FS_CONFIG_MAX][KI_FS_PATH_MAX];
+struct ki_fs_path_array {
+	struct rcu_head rcu;
+	char paths[KI_FS_CONFIG_MAX][KI_FS_PATH_MAX];
+};
+
+static struct ki_fs_path_array ki_fs_paths_boot;
+static struct ki_fs_path_array __rcu *ki_fs_paths = &ki_fs_paths_boot;
 static DEFINE_MUTEX(ki_fs_lock);
 
 static int ki_filesystem_config_set(const char *key, const char *value)
 {
+	struct ki_fs_path_array *old;
+	struct ki_fs_path_array *new_paths;
 	unsigned int index;
 
 	if (!key || !value || strncmp(key, "path.", 5))
@@ -48,9 +57,21 @@ static int ki_filesystem_config_set(const char *key, const char *value)
 	if (strlen(value) >= KI_FS_PATH_MAX)
 		return -ENAMETOOLONG;
 
+	new_paths = kmalloc(sizeof(*new_paths), GFP_KERNEL);
+	if (!new_paths)
+		return -ENOMEM;
+
 	mutex_lock(&ki_fs_lock);
-	ki_fs_strscpy(ki_fs_paths[index], value, sizeof(ki_fs_paths[index]));
+	old = rcu_dereference_protected(ki_fs_paths,
+					lockdep_is_held(&ki_fs_lock));
+		memcpy(new_paths, old, sizeof(*new_paths));
+		ki_fs_strscpy(new_paths->paths[index], value,
+				      sizeof(new_paths->paths[index]));
+	rcu_assign_pointer(ki_fs_paths, new_paths);
 	mutex_unlock(&ki_fs_lock);
+
+	if (old != &ki_fs_paths_boot)
+		kfree_rcu(old, rcu);
 	return 0;
 }
 
@@ -63,12 +84,21 @@ static int ki_filesystem_config_unset(const char *key)
 
 static int ki_filesystem_config_reset(void)
 {
-	unsigned int i;
+	struct ki_fs_path_array *old;
+	struct ki_fs_path_array *new_paths;
+
+	new_paths = kzalloc(sizeof(*new_paths), GFP_KERNEL);
+	if (!new_paths)
+		return -ENOMEM;
 
 	mutex_lock(&ki_fs_lock);
-	for (i = 0; i < KI_FS_CONFIG_MAX; i++)
-		ki_fs_paths[i][0] = '\0';
+	old = rcu_dereference_protected(ki_fs_paths,
+					lockdep_is_held(&ki_fs_lock));
+	rcu_assign_pointer(ki_fs_paths, new_paths);
 	mutex_unlock(&ki_fs_lock);
+
+	if (old != &ki_fs_paths_boot)
+		kfree_rcu(old, rcu);
 	return 0;
 }
 
@@ -191,9 +221,13 @@ static int ki_filesystem_get_real(const char *key, char *value, size_t size)
 		    i >= KI_FS_CONFIG_MAX)
 			return -EINVAL;
 
-		mutex_lock(&ki_fs_lock);
-		ki_fs_strscpy(value, ki_fs_paths[i], size);
-		mutex_unlock(&ki_fs_lock);
+		rcu_read_lock();
+		{
+			struct ki_fs_path_array *paths =
+				rcu_dereference(ki_fs_paths);
+			ki_fs_strscpy(value, paths->paths[i], size);
+		}
+		rcu_read_unlock();
 		return 0;
 	}
 
