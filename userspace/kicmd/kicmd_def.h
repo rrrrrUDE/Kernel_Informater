@@ -19,7 +19,6 @@
 #define KI_USER_DEBUG_LOG     KI_USER_DEBUG_LOG_PATH
 
 #define KICMD_CONFIG_LINE_MAX  512
-#define KICMD_CONFIG_TMP       KICMD_USER_DIR "/.config.tmp.XXXXXX"
 
 #define KICMD_CMD_SAFEMODE "safemode"
 #define KICMD_CMD_CONFIG   "config"
