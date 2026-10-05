@@ -420,7 +420,7 @@ static int filesystem_func(int argc, char **argv)
 		return cli_unexpected_argument("kicmd func filesystem stat <path>", argv[3]);
 
 	if (strlen(argv[2]) + 5 >= KI_UAPI_KEY_MAX)
-		return -EINVAL;
+		return cli_invalid_argument("kicmd func filesystem stat <path>", "path");
 
 	fd = open_ki_checked();
 	if (fd < 0)
@@ -1453,14 +1453,14 @@ static int cmd_list_process(int argc, char **argv)
 		return cli_unexpected_argument("kicmd list process [<pid>]", argv[2]);
 
 	if (argc == 2) {
-		ret = parse_pid(argv[1], &pid);
+		ret = cli_parse_pid("kicmd list process [<pid>]", "pid", argv[1], &pid);
 		if (ret)
 			return ret;
 		ret = process_info(pid);
 	} else if (argc == 1) {
 		ret = list_process();
 	} else {
-		return -EINVAL;
+		return cli_unexpected_argument("kicmd list process [<pid>]", argv[2]);
 	}
 
 	return ret;
