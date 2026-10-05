@@ -1406,7 +1406,5 @@ int main(int argc, char **argv)
 	if (!strcmp(argv[1], KICMD_CMD_CONFIG)) return cmd_config(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_LIST)) return cmd_list(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_FUNC)) return cmd_func(argc - 1, argv + 1);
-	fprintf(stderr, "%s: unknown command: %s\n", KICMD_NAME, argv[1]);
-	fprintf(stderr, "%s: try '%s help'\n", KICMD_NAME, KICMD_NAME);
-	return 1;
+	{ static const char *const commands[] = { KICMD_CMD_SAFEMODE, KICMD_CMD_CONFIG, KICMD_CMD_LIST, KICMD_CMD_FUNC, KICMD_CMD_HELP, KICMD_CMD_VERSION }; return cli_unknown_command("command", argv[1], "kicmd <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
