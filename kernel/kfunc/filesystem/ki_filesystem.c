@@ -16,6 +16,8 @@
 #include <linux/user_namespace.h>
 #include <linux/rcupdate.h>
 #include <linux/kallsyms.h>
+#include <linux/mount.h>
+#include <linux/uaccess.h>
 
 #include "ki.h"
 #include "ki_fs_compat.h"
@@ -328,8 +330,7 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 	if (request->operation == KI_FILESYSTEM_MOUNT_UMOUNT ||
 	    request->operation == KI_FILESYSTEM_MOUNT_HOT_UMOUNT) {
 		char target[KI_FS_PATH_MAX];
-		int flags = request->operation == KI_FILESYSTEM_MOUNT_HOT_UMOUNT ?
-			MNT_DETACH : 0;
+		int flags = request->flags & MNT_DETACH;
 		long ret;
 
 		if (!request->target)
