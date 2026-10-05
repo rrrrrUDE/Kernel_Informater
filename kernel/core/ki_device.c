@@ -263,6 +263,16 @@ out_process_read:
 			return -EFAULT;
 		return 0;
 	}
+	case KI_IOCTL_NR_FILESYSTEM_MOUNT: {
+		struct ki_ioc_filesystem_mount request;
+
+		if (copy_from_user(&request, (void __user *)arg, sizeof(request)))
+			return -EFAULT;
+		if (request.operation < KI_FILESYSTEM_MOUNT_ADD ||
+		    request.operation > KI_FILESYSTEM_MOUNT_HOT_UMOUNT)
+			return -EINVAL;
+		return ki_filesystem_mount(&request);
+	}
 	case KI_IOCTL_NR_PROCESS_KILL:
 	case KI_IOCTL_NR_PROCESS_KILL_TREE: {
 		struct ki_ioc_process_pid pid;
@@ -289,7 +299,7 @@ static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	 * command dispatch, following the KSU-style ioctl layering. */
 	if (_IOC_TYPE(cmd) != KI_IOC_MAGIC)
 		return -ENOTTY;
-	if (_IOC_NR(cmd) > KI_IOCTL_NR_LIST_LINE)
+	if (_IOC_NR(cmd) > KI_IOCTL_NR_FILESYSTEM_MOUNT)
 		return -ENOTTY;
 	if (_IOC_SIZE(cmd) > PAGE_SIZE)
 		return -EINVAL;
