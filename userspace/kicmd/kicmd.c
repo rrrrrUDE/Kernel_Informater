@@ -1127,7 +1127,6 @@ static int process_check_func(void)
 
 static int list_process(void)
 {
-	(void)fd;
 	struct ki_ioc_process_entry entry;
 	unsigned int index = 0;
 
