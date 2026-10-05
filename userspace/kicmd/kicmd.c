@@ -352,8 +352,8 @@ static int filesystem_mount(int argc, char **argv)
 
 		request.operation = KI_FILESYSTEM_MOUNT_ADD;
 		request.flags = MS_BIND;
-		request.source = (uint64_t)(uintptr_t)argv[2];
-		request.target = (uint64_t)(uintptr_t)argv[3];
+		request.source = (__u64)(unsigned long)argv[2];
+		request.target = (__u64)(unsigned long)argv[3];
 	} else if (!strcmp(argv[1], "umount") || !strcmp(argv[1], "hot_unmount")) {
 		const char *usage = !strcmp(argv[1], "umount") ?
 			"kicmd func filesystem mount umount <target>" :
@@ -367,7 +367,7 @@ static int filesystem_mount(int argc, char **argv)
 		request.operation = !strcmp(argv[1], "hot_unmount") ?
 			KI_FILESYSTEM_MOUNT_HOT_UMOUNT : KI_FILESYSTEM_MOUNT_UMOUNT;
 		request.flags = !strcmp(argv[1], "hot_unmount") ? MNT_DETACH : 0;
-		request.target = (uint64_t)(uintptr_t)argv[2];
+		request.target = (__u64)(unsigned long)argv[2];
 	} else {
 		static const char *const commands[] = {
 			"add", "umount", "hot_unmount", KICMD_CMD_HELP
