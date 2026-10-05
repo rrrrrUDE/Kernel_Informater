@@ -63,6 +63,9 @@ jobs:
           test -x "$CC"
           mkdir -p "$OUT_DIR"
 
+          mapfile -t SOURCES < <(find "$GITHUB_WORKSPACE/userspace/kicmd/src" -type f -name '*.c' | sort)
+          test "${#SOURCES[@]}" -gt 0
+
           "$CC" \
             -std=c11 \
             -O2 \
@@ -71,16 +74,9 @@ jobs:
             -D_FORTIFY_SOURCE=2 \
             -fstack-protector-strong \
             -fPIE \
+            -I"$GITHUB_WORKSPACE/userspace/kicmd/include" \
             -I"$GITHUB_WORKSPACE/uapi" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/kicmd.c" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/src/common.c" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/src/module.c" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/src/filesystem.c" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/src/process.c" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/src/config.c" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/src/list.c" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/src/safemode.c" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/src/func.c" \
+            "${SOURCES[@]}" \
             -Wl,-z,relro,-z,now \
             -pie \
             -o "$OUT"
