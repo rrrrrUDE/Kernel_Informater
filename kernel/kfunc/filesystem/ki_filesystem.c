@@ -295,14 +295,21 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 
 		if (!request->source || !request->target)
 			return -EFAULT;
-		if (strncpy_from_user(source, (const char __user *)(unsigned long)request->source,
-				      sizeof(source)) <= 0)
-			return -EFAULT;
-		if (strncpy_from_user(target, (const char __user *)(unsigned long)request->target,
-				      sizeof(target)) <= 0)
-			return -EFAULT;
+		source_len = strncpy_from_user(source,
+			(const char __user *)(unsigned long)request->source,
+			sizeof(source));
+		if (source_len < 0)
+			return source_len;
+		if (source_len >= sizeof(source))
+			return -ENAMETOOLONG;
 
-		if (strlen(source) >= sizeof(source) || strlen(target) >= sizeof(target))
+		target_len = strncpy_from_user(target,
+			(const char __user *)(unsigned long)request->target,
+			sizeof(target));
+		if (target_len < 0)
+			return target_len;
+		if (target_len >= sizeof(target))
+			return -ENAMETOOLONG;
 			return -ENAMETOOLONG;
 		if (!capable(CAP_SYS_ADMIN))
 			return -EPERM;
