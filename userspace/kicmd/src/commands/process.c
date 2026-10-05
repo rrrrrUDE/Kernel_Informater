@@ -135,8 +135,10 @@ int cmd_func_process(int argc, char **argv)
 	int fd;
 	int ret;
 
-	if (argc < 2)
-		close_ki(); return cli_missing_argument("kicmd func process <COMMAND>", "COMMAND");
+	if (argc < 2) {
+		close_ki();
+		return cli_missing_argument("kicmd func process <COMMAND>", "COMMAND");
+	}
 
 	if (!strcmp(argv[1], KICMD_CMD_HELP) || !strcmp(argv[1], "-h") ||
 	    !strcmp(argv[1], "--help")) {
@@ -163,19 +165,30 @@ int cmd_func_process(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], "info")) {
-		if (argc < 3)
-			close_ki(); return cli_missing_argument("kicmd func process info <pid>", "pid");
-		if (argc > 3)
-			close_ki(); return cli_unexpected_argument("kicmd func process info <pid>", argv[3]);
+		if (argc < 3) {
+			close_ki();
+			return cli_missing_argument("kicmd func process info <pid>", "pid");
+		}
+		if (argc > 3) {
+			close_ki();
+			return cli_unexpected_argument("kicmd func process info <pid>", argv[3]);
+		}
 		ret = cli_parse_pid("kicmd func process info <pid>", "pid", argv[2], &pid);
 		if (!ret)
 			ret = process_info(pid);
 	} else if (!strcmp(argv[1], "read_memory")) {
-		if (argc < 5)
-			close_ki(); return cli_missing_argument("kicmd func process read_memory <pid> <address> <size>",
+		if (argc < 5) {
+			close_ki();
+			return cli_missing_argument(
+				"kicmd func process read_memory <pid> <address> <size>",
 				argc < 3 ? "pid" : argc < 4 ? "address" : "size");
-		if (argc > 5)
-			close_ki(); return cli_unexpected_argument("kicmd func process read_memory <pid> <address> <size>", argv[5]);
+		}
+		if (argc > 5) {
+			close_ki();
+			return cli_unexpected_argument(
+				"kicmd func process read_memory <pid> <address> <size>",
+				argv[5]);
+		}
 		ret = cli_parse_pid("kicmd func process read_memory <pid> <address> <size>",
 			"pid", argv[2], &pid);
 		if (!ret)
@@ -184,19 +197,26 @@ int cmd_func_process(int argc, char **argv)
 		if (!ret) {
 			errno = 0;
 			size = strtoul(argv[4], &endp, 0);
-			if (errno || *endp || !size || size > KI_UAPI_PROCESS_READ_MAX)
-				close_ki(); return cli_invalid_argument(
-					"kicmd func process read_memory <pid> <address> <size>", "size");
+			if (errno || *endp || !size || size > KI_UAPI_PROCESS_READ_MAX) {
+				close_ki();
+				return cli_invalid_argument(
+					"kicmd func process read_memory <pid> <address> <size>",
+					"size");
+			}
 			ret = process_read_memory(pid, address, (unsigned int)size);
 		}
 	} else if (!strcmp(argv[1], "kill") || !strcmp(argv[1], "kill_tree")) {
 		const char *usage = !strcmp(argv[1], "kill") ?
 			"kicmd func process kill <pid>" :
 			"kicmd func process kill_tree <pid>";
-		if (argc < 3)
-			close_ki(); return cli_missing_argument(usage, "pid");
-		if (argc > 3)
-			close_ki(); return cli_unexpected_argument(usage, argv[3]);
+		if (argc < 3) {
+			close_ki();
+			return cli_missing_argument(usage, "pid");
+		}
+		if (argc > 3) {
+			close_ki();
+			return cli_unexpected_argument(usage, argv[3]);
+		}
 		ret = cli_parse_pid(usage, "pid", argv[2], &pid);
 		if (!ret)
 			ret = process_signal(pid, !strcmp(argv[1], "kill_tree"));
