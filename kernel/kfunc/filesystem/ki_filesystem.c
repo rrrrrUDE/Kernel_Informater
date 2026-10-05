@@ -15,6 +15,9 @@
 #include <linux/version.h>
 #include <linux/user_namespace.h>
 #include <linux/rcupdate.h>
+#include <linux/kallsyms.h>
+#include <linux/mount.h>
+#include <linux/uaccess.h>
 
 #include "ki.h"
 #include "ki_fs_compat.h"
@@ -251,6 +254,108 @@ static int ki_filesystem_get_real_key(unsigned int index,
 
 	snprintf(key, size, "path.%u", index);
 	return 0;
+}
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
+typedef int (*ki_mount_fn_t)(char __user *, char __user *, char __user *,
+				unsigned long, void __user *);
+typedef int (*ki_umount_fn_t)(char __user *, int);
+
+static ki_mount_fn_t ki_mount_fn;
+static ki_umount_fn_t ki_umount_fn;
+
+static int ki_filesystem_mount_resolve(void)
+{
+	if (ki_mount_fn && ki_umount_fn)
+		return 0;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0)
+	ki_mount_fn = (ki_mount_fn_t)kallsyms_lookup_name("sys_mount");
+	ki_umount_fn = (ki_umount_fn_t)kallsyms_lookup_name("sys_umount");
+#else
+	ki_mount_fn = (ki_mount_fn_t)kallsyms_lookup_name("ksys_mount");
+	ki_umount_fn = (ki_umount_fn_t)kallsyms_lookup_name("ksys_umount");
+#endif
+
+	if (!ki_mount_fn || !ki_umount_fn)
+		return -ENOSYS;
+	return 0;
+}
+#endif
+
+long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
+{
+	if (!request)
+		return -EINVAL;
+
+	if (request->operation == KI_FILESYSTEM_MOUNT_ADD) {
+		char source[KI_FS_PATH_MAX];
+		char target[KI_FS_PATH_MAX];
+		ssize_t source_len;
+		ssize_t target_len;
+
+		if (!request->source || !request->target)
+			return -EFAULT;
+		source_len = strncpy_from_user(source,
+			(const char __user *)(unsigned long)request->source,
+			sizeof(source));
+		if (source_len < 0)
+			return source_len;
+		if (source_len >= sizeof(source))
+			return -ENAMETOOLONG;
+
+		target_len = strncpy_from_user(target,
+			(const char __user *)(unsigned long)request->target,
+			sizeof(target));
+		if (target_len < 0)
+			return target_len;
+		if (target_len >= sizeof(target))
+			return -ENAMETOOLONG;
+		if (!capable(CAP_SYS_ADMIN))
+			return -EPERM;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
+		{
+			long ret = ki_filesystem_mount_resolve();
+			if (ret)
+				return ret;
+		}
+		return ki_mount_fn((char __user *)(unsigned long)request->source,
+				   (char __user *)(unsigned long)request->target,
+				   NULL, MS_BIND, NULL);
+#else
+		return -EOPNOTSUPP;
+#endif
+	}
+
+	if (request->operation == KI_FILESYSTEM_MOUNT_UMOUNT ||
+	    request->operation == KI_FILESYSTEM_MOUNT_HOT_UMOUNT) {
+		char target[KI_FS_PATH_MAX];
+
+		if (!request->target)
+			return -EFAULT;
+		if (strncpy_from_user(target, (const char __user *)(uintptr_t)request->target,
+				      sizeof(target)) <= 0)
+			return -EFAULT;
+		if (strlen(target) >= sizeof(target))
+			return -ENAMETOOLONG;
+		if (!capable(CAP_SYS_ADMIN))
+			return -EPERM;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
+{
+			long ret = ki_filesystem_mount_resolve();
+			int flags = request->flags & MNT_DETACH;
+			if (ret)
+				return ret;
+			return ki_umount_fn((char __user *)(uintptr_t)request->target, flags);
+		}
+#else
+		return -EOPNOTSUPP;
+#endif
+	}
+
+	return -EINVAL;
 }
 
 int ki_filesystem_list_line(unsigned int index, char *line, size_t size)

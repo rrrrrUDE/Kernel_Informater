@@ -7,6 +7,15 @@
 #include <linux/string.h>
 #include <linux/version.h>
 
+/* Mount flags are not exposed consistently by Android kernel headers. */
+#ifndef MS_BIND
+#define MS_BIND 4096
+#endif
+
+#ifndef MNT_DETACH
+#define MNT_DETACH 2
+#endif
+
 static inline ssize_t ki_kernel_read(struct file *file, void *buf,
                                      size_t count, loff_t *pos)
 {
