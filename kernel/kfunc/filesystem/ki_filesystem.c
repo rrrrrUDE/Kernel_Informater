@@ -289,6 +289,8 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 	if (request->operation == KI_FILESYSTEM_MOUNT_ADD) {
 		char source[KI_FS_PATH_MAX];
 		char target[KI_FS_PATH_MAX];
+		ssize_t source_len;
+		ssize_t target_len;
 		long ret;
 
 		if (!request->source || !request->target)
