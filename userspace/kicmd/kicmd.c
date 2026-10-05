@@ -108,6 +108,15 @@ static int cli_unexpected_argument(const char *usage, const char *argument)
 	return 1;
 }
 
+static int cli_result(int ret)
+{
+	if (ret < 0) {
+		fprintf(stderr, "Error: %s\n", strerror(-ret));
+		return 1;
+	}
+	return ret;
+}
+
 static int ki_ioctl(unsigned long request, void *arg);
 static void close_ki(void);
 static int ki_driver_fd = -1;
@@ -143,8 +152,8 @@ static void module_report_error(const char *operation, const char *name, int err
 	char buf[4096];
 	ssize_t n;
 
-	fprintf(stderr, "%s: %s %s: %s\n",
-		KICMD_NAME, operation, name ? name : "module", reason);
+	fprintf(stderr, "Error: %s %s: %s\n",
+		operation, name ? name : "module", reason);
 
 	/*
 	 * Like ksud, inspect the kernel log after a module-load failure so
@@ -168,7 +177,7 @@ static void module_report_error(const char *operation, const char *name, int err
 			    strstr(line, "version magic") ||
 			    strstr(line, "invalid module") ||
 			    strstr(line, "module verification failed")) {
-				fprintf(stderr, "%s: kernel: %s\n", KICMD_NAME, line);
+				fprintf(stderr, "Error: kernel: %s\n", line);
 			}
 			line = next;
 			if (!next)
@@ -298,6 +307,74 @@ static int module_func(int argc, char **argv)
 
 static int open_ki_checked(void);
 
+static int filesystem_mount(int argc, char **argv)
+{
+	if (argc < 2)
+		return cli_missing_argument("kicmd func filesystem mount <COMMAND>", "COMMAND");
+
+	if (!strcmp(argv[1], KICMD_CMD_HELP) || !strcmp(argv[1], "-h") ||
+	    !strcmp(argv[1], "--help")) {
+		fputs("Usage: kicmd func filesystem mount <COMMAND>\n\n"
+		      "Commands:\n"
+		      "  add <source> <target>       Add a bind mount\n"
+		      "  umount <target>             Unmount a mount point\n"
+		      "  hot_unmount <target>        Lazy-unmount a mount point\n"
+		      "  help                        Print help\n\n"
+		      "Options:\n"
+		      "  -h, --help                  Print help\n", stdout);
+		return 0;
+	}
+
+	if (!strcmp(argv[1], "add")) {
+		if (argc < 4)
+			return cli_missing_argument("kicmd func filesystem mount add <source> <target>",
+				argc < 3 ? "source" : "target");
+		if (argc > 4)
+			return cli_unexpected_argument(
+				"kicmd func filesystem mount add <source> <target>", argv[4]);
+
+#ifdef SYS_mount
+		if (syscall(SYS_mount, argv[2], argv[3], NULL, MS_BIND, NULL) < 0)
+			return -errno;
+#else
+		return -ENOSYS;
+#endif
+		printf("Mounted %s -> %s\n", argv[2], argv[3]);
+		return 0;
+	}
+
+	if (!strcmp(argv[1], "umount") || !strcmp(argv[1], "hot_unmount")) {
+		const char *usage = !strcmp(argv[1], "umount") ?
+			"kicmd func filesystem mount umount <target>" :
+			"kicmd func filesystem mount hot_unmount <target>";
+		int flags = !strcmp(argv[1], "hot_unmount") ? MNT_DETACH : 0;
+
+		if (argc < 3)
+			return cli_missing_argument(usage, "target");
+		if (argc > 3)
+			return cli_unexpected_argument(usage, argv[3]);
+
+#ifdef SYS_umount2
+		if (syscall(SYS_umount2, argv[2], flags) < 0)
+			return -errno;
+#else
+		return -ENOSYS;
+#endif
+		printf("Unmounted %s%s\n", argv[2],
+		       flags ? " (lazy)" : "");
+		return 0;
+	}
+
+	{
+		static const char *const commands[] = {
+			"add", "umount", "hot_unmount", KICMD_CMD_HELP
+		};
+		return cli_unknown_command("subcommand", argv[1],
+			"kicmd func filesystem mount <COMMAND>", commands,
+			sizeof(commands) / sizeof(commands[0]));
+	}
+}
+
 static int filesystem_func(int argc, char **argv)
 {
 	int fd;
@@ -316,6 +393,9 @@ static int filesystem_func(int argc, char **argv)
 		      "  -h, --help   Print help\n", stdout);
 		return 0;
 	}
+	if (!strcmp(argv[1], "mount"))
+		return filesystem_mount(argc - 1, argv + 1);
+
 	if (strcmp(argv[1], "stat")) {
 		static const char *const commands[] = { "stat", KICMD_CMD_HELP };
 		return cli_unknown_command("subcommand", argv[1],
@@ -1517,16 +1597,16 @@ int main(int argc, char **argv)
 		print_help();
 		return 0;
 	}
-	if (!strcmp(argv[1], KICMD_CMD_HELP)) return cmd_help(argc - 1, argv + 1);
+	if (!strcmp(argv[1], KICMD_CMD_HELP)) return cli_result(cmd_help(argc - 1, argv + 1));
 	if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) { print_help(); return 0; }
 	if (!strcmp(argv[1], KICMD_CMD_VERSION) || !strcmp(argv[1], "-V") || !strcmp(argv[1], "--version")) {
 		if (argc > 2)
 			return cli_unexpected_argument("kicmd version", argv[2]);
-		return print_version();
+		return cli_result(print_version());
 	}
-	if (!strcmp(argv[1], KICMD_CMD_SAFEMODE)) return cmd_safemode(argc - 1, argv + 1);
-	if (!strcmp(argv[1], KICMD_CMD_CONFIG)) return cmd_config(argc - 1, argv + 1);
-	if (!strcmp(argv[1], KICMD_CMD_LIST)) return cmd_list(argc - 1, argv + 1);
-	if (!strcmp(argv[1], KICMD_CMD_FUNC)) return cmd_func(argc - 1, argv + 1);
+	if (!strcmp(argv[1], KICMD_CMD_SAFEMODE)) return cli_result(cmd_safemode(argc - 1, argv + 1));
+	if (!strcmp(argv[1], KICMD_CMD_CONFIG)) return cli_result(cmd_config(argc - 1, argv + 1));
+	if (!strcmp(argv[1], KICMD_CMD_LIST)) return cli_result(cmd_list(argc - 1, argv + 1));
+	if (!strcmp(argv[1], KICMD_CMD_FUNC)) return cli_result(cmd_func(argc - 1, argv + 1));
 	{ static const char *const commands[] = { KICMD_CMD_SAFEMODE, KICMD_CMD_CONFIG, KICMD_CMD_LIST, KICMD_CMD_FUNC, KICMD_CMD_HELP, KICMD_CMD_VERSION }; return cli_unknown_command("command", argv[1], "kicmd <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
