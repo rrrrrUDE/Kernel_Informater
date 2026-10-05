@@ -214,11 +214,27 @@ static int module_func(int argc, char **argv)
 	int ret;
 
 	if (argc < 2)
-		return -EINVAL;
+		return cli_missing_argument("kicmd func module <COMMAND>", "COMMAND");
+
+	if (!strcmp(argv[1], KICMD_CMD_HELP) || !strcmp(argv[1], "-h") ||
+	    !strcmp(argv[1], "--help")) {
+		fputs("Usage: kicmd func module <COMMAND>\n\n"
+		      "Commands:\n"
+		      "  insmod <path> [args...]  Load a kernel module\n"
+		      "  rmmod <name>             Remove a kernel module\n"
+		      "  help                     Print help\n\n"
+		      "Options:\n"
+		      "  -h, --help               Print help\n", stdout);
+		return 0;
+	}
 
 	if (!strcmp(argv[1], "rmmod")) {
-		if (argc != 3 || !argv[2][0])
-			return -EINVAL;
+		if (argc < 3)
+			return cli_missing_argument("kicmd func module rmmod <name>", "name");
+		if (argc > 3)
+			return cli_unexpected_argument("kicmd func module rmmod <name>", argv[3]);
+		if (!argv[2][0])
+			return cli_missing_argument("kicmd func module rmmod <name>", "name");
 #ifdef SYS_delete_module
 		ret = (int)syscall(SYS_delete_module, argv[2], 0);
 		if (ret < 0) {
@@ -233,8 +249,14 @@ static int module_func(int argc, char **argv)
 #endif
 	}
 
-	if (strcmp(argv[1], "insmod") || argc < 3)
-		return -EINVAL;
+	if (strcmp(argv[1], "insmod")) {
+		static const char *const commands[] = { "insmod", "rmmod", KICMD_CMD_HELP };
+		return cli_unknown_command("subcommand", argv[1],
+			"kicmd func module <COMMAND>", commands,
+			sizeof(commands) / sizeof(commands[0]));
+	}
+	if (argc < 3)
+		return cli_missing_argument("kicmd func module insmod <path> [args...]", "path");
 
 	fd = open(argv[2], O_RDONLY | O_CLOEXEC);
 	if (fd < 0)
@@ -281,8 +303,29 @@ static int filesystem_func(int argc, char **argv)
 	int fd;
 	struct ki_ioc_real real;
 
-	if (argc != 3 || strcmp(argv[1], "stat"))
-		return -EINVAL;
+	if (argc < 2)
+		return cli_missing_argument("kicmd func filesystem <COMMAND>", "COMMAND");
+
+	if (!strcmp(argv[1], KICMD_CMD_HELP) || !strcmp(argv[1], "-h") ||
+	    !strcmp(argv[1], "--help")) {
+		fputs("Usage: kicmd func filesystem <COMMAND>\n\n"
+		      "Commands:\n"
+		      "  stat <path>  Show filesystem information\n"
+		      "  help         Print help\n\n"
+		      "Options:\n"
+		      "  -h, --help   Print help\n", stdout);
+		return 0;
+	}
+	if (strcmp(argv[1], "stat")) {
+		static const char *const commands[] = { "stat", KICMD_CMD_HELP };
+		return cli_unknown_command("subcommand", argv[1],
+			"kicmd func filesystem <COMMAND>", commands,
+			sizeof(commands) / sizeof(commands[0]));
+	}
+	if (argc < 3)
+		return cli_missing_argument("kicmd func filesystem stat <path>", "path");
+	if (argc > 3)
+		return cli_unexpected_argument("kicmd func filesystem stat <path>", argv[3]);
 
 	if (strlen(argv[2]) + 5 >= KI_UAPI_KEY_MAX)
 		return -EINVAL;
@@ -1327,7 +1370,21 @@ static int cmd_func_process(int argc, char **argv)
 	int ret;
 
 	if (argc < 2)
-		return -EINVAL;
+		return cli_missing_argument("kicmd func process <COMMAND>", "COMMAND");
+
+	if (!strcmp(argv[1], KICMD_CMD_HELP) || !strcmp(argv[1], "-h") ||
+	    !strcmp(argv[1], "--help")) {
+		fputs("Usage: kicmd func process <COMMAND>\n\n"
+		      "Commands:\n"
+		      "  info <pid>                         Show process information\n"
+		      "  read_memory <pid> <address> <size> Read process memory\n"
+		      "  kill <pid>                         Kill one process\n"
+		      "  kill_tree <pid>                    Kill a process and its descendants\n"
+		      "  help                               Print help\n\n"
+		      "Options:\n"
+		      "  -h, --help                         Print help\n", stdout);
+		return 0;
+	}
 
 	fd = open_ki_checked();
 	if (fd < 0)
@@ -1362,7 +1419,13 @@ static int cmd_func_process(int argc, char **argv)
 		else
 			ret = process_signal(pid, !strcmp(argv[1], "kill_tree"));
 	} else {
-		ret = -EINVAL;
+		static const char *const commands[] = {
+			"info", "read_memory", "kill", "kill_tree", KICMD_CMD_HELP
+		};
+		close(fd);
+		return cli_unknown_command("subcommand", argv[1],
+			"kicmd func process <COMMAND>", commands,
+			sizeof(commands) / sizeof(commands[0]));
 	}
 
 	close(fd);
