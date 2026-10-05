@@ -81,6 +81,35 @@ static void module_report_error(const char *operation, const char *name, int err
 	close(kmsg);
 }
 
+static void debug_log(const char *fmt, ...)
+{
+	FILE *fp;
+	va_list ap;
+	time_t now;
+	struct tm tm;
+	char ts[64];
+
+	if (!ki_debug_enabled())
+		return;
+
+	if (ensure_userd_dir())
+		return;
+
+	fp = fopen(KI_USER_DEBUG_LOG, "a");
+	if (!fp)
+		return;
+
+	now = time(NULL);
+	localtime_r(&now, &tm);
+	strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &tm);
+	fprintf(fp, "[%s] ", ts);
+	va_start(ap, fmt);
+	vfprintf(fp, fmt, ap);
+	va_end(ap);
+	fputc('\n', fp);
+	fclose(fp);
+}
+
 static int module_func(int argc, char **argv)
 {
 	int fd;
@@ -277,34 +306,6 @@ static bool ki_debug_enabled(void)
 	return cached != 0;
 }
 
-static void debug_log(const char *fmt, ...)
-{
-	FILE *fp;
-	va_list ap;
-	time_t now;
-	struct tm tm;
-	char ts[64];
-
-	if (!ki_debug_enabled())
-		return;
-
-	if (ensure_userd_dir())
-		return;
-
-	fp = fopen(KI_USER_DEBUG_LOG, "a");
-	if (!fp)
-		return;
-
-	now = time(NULL);
-	localtime_r(&now, &tm);
-	strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &tm);
-	fprintf(fp, "[%s] ", ts);
-	va_start(ap, fmt);
-	vfprintf(fp, fmt, ap);
-	va_end(ap);
-	fputc('\n', fp);
-	fclose(fp);
-}
 static int open_ki(void)
 {
 	int fd = open(KI_DEVICE_PATH, O_RDWR | O_CLOEXEC);
