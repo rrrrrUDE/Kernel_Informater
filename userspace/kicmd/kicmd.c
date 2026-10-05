@@ -1450,16 +1450,22 @@ static int cmd_func(int argc, char **argv)
 		return filesystem_func(argc - 1, argv + 1);
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
-		if (argc != 5)
-			return fprintf(stderr, "%s: usage: func set <kfunc> <key> <value>\n", KICMD_NAME), 1;
+		if (argc < 5)
+			return cli_missing_argument("kicmd func set <kfunc> <key> <value>",
+				argc < 3 ? "kfunc" : argc < 4 ? "key" : "value");
+		if (argc > 5)
+			return cli_unexpected_argument("kicmd func set <kfunc> <key> <value>", argv[5]);
 		ret = ioctl_value(KI_IOC_FUNC_VALUE_SET, argv[2], argv[3], argv[4]);
 		debug_log("func set %s.%s=%s", argv[2], argv[3], argv[4]);
 		return ret;
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_UNSET)) {
-		if (argc != 4)
-			return fprintf(stderr, "%s: usage: func unset <kfunc> <key>\n", KICMD_NAME), 1;
+		if (argc < 4)
+			return cli_missing_argument("kicmd func unset <kfunc> <key>",
+				argc < 3 ? "kfunc" : "key");
+		if (argc > 4)
+			return cli_unexpected_argument("kicmd func unset <kfunc> <key>", argv[4]);
 		ret = ioctl_key(KI_IOC_FUNC_VALUE_UNSET, argv[2], argv[3]);
 		debug_log("func unset %s.%s", argv[2], argv[3]);
 		return ret;
@@ -1467,7 +1473,7 @@ static int cmd_func(int argc, char **argv)
 
 	if (!strcmp(argv[1], KICMD_SUB_RESET)) {
 		if (argc > 3)
-			return fprintf(stderr, "%s: usage: func reset [<kfunc>]\n", KICMD_NAME), 1;
+			return cli_unexpected_argument("kicmd func reset [<kfunc>]", argv[3]);
 		ret = ioctl_kfunc(KI_IOC_FUNC_KFUNC_RESET, argc == 3 ? argv[2] : "");
 		debug_log("func reset %s", argc == 3 ? argv[2] : "all");
 		return ret;
@@ -1486,7 +1492,14 @@ static int cmd_help(int argc, char **argv)
 	else if (!strcmp(argv[1], KICMD_CMD_CONFIG)) fputs(kicmd_help_config, stdout);
 	else if (!strcmp(argv[1], KICMD_CMD_LIST)) fputs(kicmd_help_list, stdout);
 	else if (!strcmp(argv[1], KICMD_CMD_FUNC)) fputs(kicmd_help_func, stdout);
-	else return 1;
+	else {
+		static const char *const commands[] = {
+			KICMD_CMD_SAFEMODE, KICMD_CMD_CONFIG, KICMD_CMD_LIST,
+			KICMD_CMD_FUNC, KICMD_CMD_VERSION, KICMD_CMD_HELP
+		};
+		return cli_unknown_command("command", argv[1], "kicmd help <COMMAND>",
+			commands, sizeof(commands) / sizeof(commands[0]));
+	}
 	return 0;
 }
 
