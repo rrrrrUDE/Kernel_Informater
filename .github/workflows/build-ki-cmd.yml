@@ -73,6 +73,14 @@ jobs:
             -fPIE \
             -I"$GITHUB_WORKSPACE/uapi" \
             "$GITHUB_WORKSPACE/userspace/kicmd/kicmd.c" \
+            "$GITHUB_WORKSPACE/userspace/kicmd/src/common.c" \
+            "$GITHUB_WORKSPACE/userspace/kicmd/src/module.c" \
+            "$GITHUB_WORKSPACE/userspace/kicmd/src/filesystem.c" \
+            "$GITHUB_WORKSPACE/userspace/kicmd/src/process.c" \
+            "$GITHUB_WORKSPACE/userspace/kicmd/src/config.c" \
+            "$GITHUB_WORKSPACE/userspace/kicmd/src/list.c" \
+            "$GITHUB_WORKSPACE/userspace/kicmd/src/safemode.c" \
+            "$GITHUB_WORKSPACE/userspace/kicmd/src/func.c" \
             -Wl,-z,relro,-z,now \
             -pie \
             -o "$OUT"
