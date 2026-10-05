@@ -15,6 +15,64 @@
 
 #include "kicmd_def.h"
 
+static size_t cli_edit_distance(const char *a, const char *b)
+{
+    size_t la = strlen(a), lb = strlen(b), i, j;
+    size_t prev[65], cur[65];
+    if (la > 64) la = 64;
+    if (lb > 64) lb = 64;
+    for (j = 0; j <= lb; j++) prev[j] = j;
+    for (i = 1; i <= la; i++) {
+        cur[0] = i;
+        for (j = 1; j <= lb; j++) {
+            size_t v = prev[j] + 1;
+            size_t x = cur[j - 1] + 1;
+            size_t y = prev[j - 1] + (a[i - 1] != b[j - 1]);
+            if (x < v) v = x;
+            if (y < v) v = y;
+            cur[j] = v;
+        }
+        memcpy(prev, cur, (lb + 1) * sizeof(prev[0]));
+    }
+    return prev[lb];
+}
+
+static bool cli_command_matches(const char *input, const char *candidate)
+{
+    size_t len;
+    if (!input || !candidate || !*input || !*candidate) return false;
+    len = strlen(input);
+    return !strncmp(candidate, input, len) ||
+           cli_edit_distance(input, candidate) <= (len <= 3 ? 1 : 2);
+}
+
+static void cli_print_suggestions(const char *input, const char *const *commands, size_t count)
+{
+    size_t i;
+    bool printed = false;
+    for (i = 0; i < count; i++) {
+        if (!cli_command_matches(input, commands[i])) continue;
+        if (!printed) { fputs("\n  tip: ", stderr); printed = true; }
+        else fputs(", ", stderr);
+        fprintf(stderr, "'%s'", commands[i]);
+    }
+    if (printed) fputc('\n', stderr);
+}
+
+static int cli_unknown_command(const char *scope, const char *command, const char *usage, const char *const *commands, size_t count)
+{
+    fprintf(stderr, "error: unrecognized %s '%s'\n\n", scope, command ? command : "");
+    fprintf(stderr, "Usage: %s\n\n", usage);
+    cli_print_suggestions(command, commands, count);
+    fprintf(stderr, "For more information, try '--help'.\n");
+    return 1;
+}
+
+static int cli_missing_argument(const char *usage, const char *argument)
+{
+    fprintf(stderr, "error: the following required arguments were not provided:\n  <%s>\n\nUsage: %s\n\nFor more information, try '--help'.\n", argument, usage);
+    return 1;
+}
 static int ki_ioctl(unsigned long request, void *arg);
 static void close_ki(void);
 static int ki_driver_fd = -1;
@@ -791,8 +849,7 @@ static int cmd_safemode(int argc, char **argv)
 		return 0;
 	}
 
-	return fprintf(stderr, "%s: unknown safemode command: %s\n",
-		       KICMD_NAME, argv[1]), 1;
+	{ static const char *const commands[] = { KICMD_SUB_ENABLE, KICMD_SUB_DISABLE, KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd safemode <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
 
 static int cmd_config(int argc, char **argv)
@@ -942,7 +999,7 @@ cfg_list(argc == 3 ? argv[2] : NULL);
 		return 0;
 	}
 
-	return fprintf(stderr, "%s: unknown config command: %s\n", KICMD_NAME, argv[1]), 1;
+	{ static const char *const commands[] = { KICMD_SUB_DEL, KICMD_SUB_SET, KICMD_SUB_UNSET, KICMD_SUB_RESET, KICMD_SUB_ACTIVE, KICMD_SUB_INACTIVE, KICMD_SUB_LIST, KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd config <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
 
 static int list_real_one(const char *kfunc, const char *key)
@@ -1318,7 +1375,7 @@ static int cmd_func(int argc, char **argv)
 		return ret;
 	}
 
-	return fprintf(stderr, "%s: unknown func command: %s\n", KICMD_NAME, argv[1]), 1;
+	{ static const char *const commands[] = { KICMD_SUB_SET, KICMD_SUB_UNSET, KICMD_SUB_RESET, "process", "module", "filesystem", KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd func <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
 
 static int cmd_help(int argc, char **argv)
@@ -1331,7 +1388,7 @@ static int cmd_help(int argc, char **argv)
 	else if (!strcmp(argv[1], KICMD_CMD_CONFIG)) fputs(kicmd_help_config, stdout);
 	else if (!strcmp(argv[1], KICMD_CMD_LIST)) fputs(kicmd_help_list, stdout);
 	else if (!strcmp(argv[1], KICMD_CMD_FUNC)) fputs(kicmd_help_func, stdout);
-	else return fprintf(stderr, "%s: unknown command: %s\n", KICMD_NAME, argv[1]), 1;
+	else return 1;
 	return 0;
 }
 
@@ -1349,7 +1406,5 @@ int main(int argc, char **argv)
 	if (!strcmp(argv[1], KICMD_CMD_CONFIG)) return cmd_config(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_LIST)) return cmd_list(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_FUNC)) return cmd_func(argc - 1, argv + 1);
-	fprintf(stderr, "%s: unknown command: %s\n", KICMD_NAME, argv[1]);
-	fprintf(stderr, "%s: try '%s help'\n", KICMD_NAME, KICMD_NAME);
-	return 1;
+	{ static const char *const commands[] = { KICMD_CMD_SAFEMODE, KICMD_CMD_CONFIG, KICMD_CMD_LIST, KICMD_CMD_FUNC, KICMD_CMD_HELP, KICMD_CMD_VERSION }; return cli_unknown_command("command", argv[1], "kicmd <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
