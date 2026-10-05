@@ -45,6 +45,7 @@ enum ki_ioctl_nr {
 	KI_IOCTL_NR_PROCESS_KILL,
 	KI_IOCTL_NR_PROCESS_KILL_TREE,
 	KI_IOCTL_NR_LIST_LINE,
+	KI_IOCTL_NR_FILESYSTEM_MOUNT,
 };
 
 struct ki_ioc_version {
@@ -145,6 +146,17 @@ struct ki_ioc_list_line {
 	char line[KI_UAPI_LIST_LINE_MAX];
 };
 
+#define KI_FILESYSTEM_MOUNT_ADD        1U
+#define KI_FILESYSTEM_MOUNT_UMOUNT     2U
+#define KI_FILESYSTEM_MOUNT_HOT_UMOUNT 3U
+
+struct ki_ioc_filesystem_mount {
+	__u32 operation;
+	__u32 flags;
+	__u64 source;
+	__u64 target;
+};
+
 #define KI_IOC_GET_VERSION 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_VERSION, struct ki_ioc_version)
 #define KI_IOC_GET_DEBUG 	_IOR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_DEBUG, struct ki_ioc_debug)
 #define KI_IOC_GET_KFUNC_FEATURES 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_GET_KFUNC_FEATURES, struct ki_ioc_kfunc_features)
@@ -163,5 +175,6 @@ struct ki_ioc_list_line {
 #define KI_IOC_PROCESS_KILL 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_KILL, struct ki_ioc_process_pid)
 #define KI_IOC_PROCESS_KILL_TREE 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_PROCESS_KILL_TREE, struct ki_ioc_process_pid)
 #define KI_IOC_LIST_LINE 	_IOWR(KI_IOC_MAGIC, KI_IOCTL_NR_LIST_LINE, struct ki_ioc_list_line)
+#define KI_IOC_FILESYSTEM_MOUNT 	_IOW(KI_IOC_MAGIC, KI_IOCTL_NR_FILESYSTEM_MOUNT, struct ki_ioc_filesystem_mount)
 
 #endif /* _KI_UAPI_H */
