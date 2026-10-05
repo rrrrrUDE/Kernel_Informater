@@ -332,11 +332,11 @@ static int filesystem_mount(int argc, char **argv)
 		fputs("Usage: kicmd func filesystem mount <COMMAND>\\n\\n"
 		      "Commands:\\n"
 		      "  add <source> <target>       Add a bind mount\\n"
-		      "  umount <target>             Unmount a mount point\\n"
-		      "  hot_unmount <target>        Lazy-unmount a mount point\\n"
+		      "  umount [--lazy|-l] <target> Unmount a mount point\\n"
 		      "  help                        Print help\\n\\n"
 		      "Options:\\n"
-		      "  -h, --help                  Print help\\n", stdout);
+		      "  -h, --help                 Print help\\n"
+		      "  -l, --lazy                Lazy/thermal unmount\\n", stdout);
 		return 0;
 	}
 
@@ -354,25 +354,42 @@ static int filesystem_mount(int argc, char **argv)
 		request.flags = MS_BIND;
 		request.source = (__u64)(unsigned long)argv[2];
 		request.target = (__u64)(unsigned long)argv[3];
-	} else if (!strcmp(argv[1], "umount") || !strcmp(argv[1], "hot_unmount")) {
-		const char *usage = !strcmp(argv[1], "umount") ?
-			"kicmd func filesystem mount umount <target>" :
-			"kicmd func filesystem mount hot_unmount <target>";
+	} else if (!strcmp(argv[1], "umount")) {
+		bool lazy = false;
+		const char *target;
 
 		if (argc < 3)
-			return cli_missing_argument(usage, "target");
-		if (argc > 3)
-			return cli_unexpected_argument(usage, argv[3]);
+			return cli_missing_argument(
+				"kicmd func filesystem mount umount [--lazy|-l] <target>",
+				"target");
+		if (argc > 4)
+			return cli_unexpected_argument(
+				"kicmd func filesystem mount umount [--lazy|-l] <target>",
+				argv[4]);
 
-		request.operation = !strcmp(argv[1], "hot_unmount") ?
-			KI_FILESYSTEM_MOUNT_HOT_UMOUNT : KI_FILESYSTEM_MOUNT_UMOUNT;
-		request.flags = !strcmp(argv[1], "hot_unmount") ? MNT_DETACH : 0;
-		request.target = (__u64)(unsigned long)argv[2];
+		if (!strcmp(argv[2], "-l") || !strcmp(argv[2], "--lazy")) {
+			lazy = true;
+			if (argc < 4)
+				return cli_missing_argument(
+					"kicmd func filesystem mount umount [--lazy|-l] <target>",
+					"target");
+			target = argv[3];
+		} else {
+			if (argc != 3)
+				return cli_unexpected_argument(
+					"kicmd func filesystem mount umount [--lazy|-l] <target>",
+					argv[3]);
+			target = argv[2];
+		}
+
+		request.operation = KI_FILESYSTEM_MOUNT_UMOUNT;
+		request.flags = lazy ? MNT_DETACH : 0;
+		request.target = (__u64)(unsigned long)target;
 	} else {
 		static const char *const commands[] = {
-			"add", "umount", "hot_unmount", KICMD_CMD_HELP
+			"add", "umount", KICMD_CMD_HELP
 		};
-		return cli_unknown_command("subcommand", argv[1],
+		return cli_unknown_command("subcommand", argv[1], 
 			"kicmd func filesystem mount <COMMAND>", commands,
 			sizeof(commands) / sizeof(commands[0]));
 	}
@@ -388,10 +405,13 @@ static int filesystem_mount(int argc, char **argv)
 
 	if (request.operation == KI_FILESYSTEM_MOUNT_ADD)
 		printf("- Mounted %s -> %s\\n", argv[2], argv[3]);
-	else
-		printf("- Unmounted %s%s\\n", argv[2],
-		       request.operation == KI_FILESYSTEM_MOUNT_HOT_UMOUNT ?
-		       " (lazy)" : "");
+	else {
+		const char *target = request.flags & MNT_DETACH ?
+			((argc >= 4 && (!strcmp(argv[2], "-l") || !strcmp(argv[2], "--lazy"))) ?
+				argv[3] : argv[2]) : argv[2];
+		printf("- Unmounted %s%s\\n", target,
+		       request.flags & MNT_DETACH ? " (lazy)" : "");
+	}
 
 	return 0;
 }
