@@ -1,3 +1,4 @@
+#include "../../include/kicmd_internal.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -54,8 +55,7 @@ int cmd_safemode(int argc, char **argv)
 	}
 
 	{ static const char *const commands[] = { KICMD_SUB_ENABLE, KICMD_SUB_DISABLE, KICMD_CMD_HELP }; return cli_unknown_command("subcommand", argv[1], "kicmd safemode <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
-}#include "../../include/kicmd_internal.h"
-#include <errno.h>
+}#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
