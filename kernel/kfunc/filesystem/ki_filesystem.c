@@ -293,10 +293,10 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 
 		if (!request->source || !request->target)
 			return -EFAULT;
-		if (strncpy_from_user(source, (const char __user *)(uintptr_t)request->source,
+		if (strncpy_from_user(source, (const char __user *)(unsigned long)request->source,
 				      sizeof(source)) <= 0)
 			return -EFAULT;
-		if (strncpy_from_user(target, (const char __user *)(uintptr_t)request->target,
+		if (strncpy_from_user(target, (const char __user *)(unsigned long)request->target,
 				      sizeof(target)) <= 0)
 			return -EFAULT;
 
@@ -309,8 +309,8 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 		ret = ki_filesystem_mount_resolve();
 		if (ret)
 			return ret;
-		return ki_mount_fn((char __user *)(uintptr_t)request->source,
-				   (char __user *)(uintptr_t)request->target,
+		return ki_mount_fn((char __user *)(unsigned long)request->source,
+				   (char __user *)(unsigned long)request->target,
 				   NULL, MS_BIND, NULL);
 #else
 		return -EOPNOTSUPP;
