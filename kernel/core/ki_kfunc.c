@@ -10,6 +10,7 @@
 
 struct ki_kfunc_node {
 	struct list_head list;
+	struct hlist_node hash;
 	struct ki_kfunc *kfunc;
 };
 
@@ -149,6 +150,7 @@ int ki_kfunc_unregister(struct ki_kfunc *kfunc)
 	list_for_each_entry_safe(node, tmp, &ki_kfunc_list, list) {
 		if (node->kfunc == kfunc) {
 			list_del(&node->list);
+			hash_del(&node->hash);
 			kfree(node);
 			found = true;
 			break;
