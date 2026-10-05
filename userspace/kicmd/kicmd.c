@@ -128,24 +128,6 @@ static int cli_result(int ret)
 	return ret;
 }
 
-static int cli_parse_pid(const char *usage, const char *argument,
-			 const char *value, pid_t *pid)
-{
-	int ret = parse_pid(value, pid);
-	if (ret)
-		return cli_invalid_argument(usage, argument);
-	return 0;
-}
-
-static int cli_parse_u64(const char *usage, const char *argument,
-			  const char *value, unsigned long long *number)
-{
-	int ret = parse_u64(value, number);
-	if (ret)
-		return cli_invalid_argument(usage, argument);
-	return 0;
-}
-
 static int ki_ioctl(unsigned long request, void *arg);
 static void close_ki(void);
 static int ki_driver_fd = -1;
@@ -1346,6 +1328,24 @@ static int parse_u64(const char *s, unsigned long long *value)
 	*value = strtoull(s, &endp, 0);
 	if (errno || *endp)
 		return -EINVAL;
+	return 0;
+}
+
+static int cli_parse_pid(const char *usage, const char *argument,
+			 const char *value, pid_t *pid)
+{
+	int ret = parse_pid(value, pid);
+	if (ret)
+		return cli_invalid_argument(usage, argument);
+	return 0;
+}
+
+static int cli_parse_u64(const char *usage, const char *argument,
+			  const char *value, unsigned long long *number)
+{
+	int ret = parse_u64(value, number);
+	if (ret)
+		return cli_invalid_argument(usage, argument);
 	return 0;
 }
 
