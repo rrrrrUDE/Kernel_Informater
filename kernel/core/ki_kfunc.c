@@ -3,6 +3,7 @@
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/hashtable.h>
+#include <linux/jhash.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -16,6 +17,7 @@ struct ki_kfunc_node {
 };
 
 #define KI_KFUNC_HASH_BITS 4
+#define KI_KFUNC_HASH_KEY(name) jhash((name), strlen(name), 0)
 static LIST_HEAD(ki_kfunc_list);
 static DEFINE_HASHTABLE(ki_kfunc_hash, KI_KFUNC_HASH_BITS);
 static DEFINE_MUTEX(ki_kfunc_lock);
@@ -26,7 +28,7 @@ static struct ki_kfunc *ki_kfunc_find_locked(const char *name)
 		struct ki_kfunc_node *hash_node;
 
 		hash_for_each_possible(ki_kfunc_hash, hash_node, hash,
-				       (unsigned long)name) {
+				       KI_KFUNC_HASH_KEY(name)) {
 			if (!strcmp(hash_node->kfunc->name, name))
 				return hash_node->kfunc;
 		}
@@ -126,7 +128,7 @@ int ki_kfunc_register(struct ki_kfunc *kfunc)
 
 	node->kfunc = kfunc;
 	list_add_tail(&node->list, &ki_kfunc_list);
-	hash_add(ki_kfunc_hash, &node->hash, (unsigned long)kfunc->name);
+	hash_add(ki_kfunc_hash, &node->hash, KI_KFUNC_HASH_KEY(kfunc->name));
 
 out_unlock:
 	mutex_unlock(&ki_kfunc_lock);
