@@ -17,6 +17,7 @@
 #include <linux/rcupdate.h>
 #include <linux/kallsyms.h>
 #include <linux/mount.h>
+#include <uapi/linux/mount.h>
 #include <linux/uaccess.h>
 
 #include "ki.h"
@@ -293,7 +294,6 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 		char target[KI_FS_PATH_MAX];
 		ssize_t source_len;
 		ssize_t target_len;
-		long ret;
 
 		if (!request->source || !request->target)
 			return -EFAULT;
@@ -316,9 +316,11 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 			return -EPERM;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
-		ret = ki_filesystem_mount_resolve();
-		if (ret)
-			return ret;
+		{
+			long ret = ki_filesystem_mount_resolve();
+			if (ret)
+				return ret;
+		}
 		return ki_mount_fn((char __user *)(unsigned long)request->source,
 				   (char __user *)(unsigned long)request->target,
 				   NULL, MS_BIND, NULL);
@@ -330,8 +332,6 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 	if (request->operation == KI_FILESYSTEM_MOUNT_UMOUNT ||
 	    request->operation == KI_FILESYSTEM_MOUNT_HOT_UMOUNT) {
 		char target[KI_FS_PATH_MAX];
-		int flags = request->flags & MNT_DETACH;
-		long ret;
 
 		if (!request->target)
 			return -EFAULT;
@@ -344,10 +344,13 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 			return -EPERM;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
-		ret = ki_filesystem_mount_resolve();
-		if (ret)
-			return ret;
-		return ki_umount_fn((char __user *)(uintptr_t)request->target, flags);
+{
+			long ret = ki_filesystem_mount_resolve();
+			int flags = request->flags & MNT_DETACH;
+			if (ret)
+				return ret;
+			return ki_umount_fn((char __user *)(uintptr_t)request->target, flags);
+		}
 #else
 		return -EOPNOTSUPP;
 #endif
