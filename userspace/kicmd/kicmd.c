@@ -906,7 +906,10 @@ static int cmd_safemode(int argc, char **argv)
 		return 1;
 
 	if (!strcmp(argv[1], KICMD_SUB_ENABLE)) {
-		int fd = open(KI_USER_SAFE_MODE, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
+		int fd;
+		if (argc > 2)
+			return cli_unexpected_argument("kicmd safemode enable", argv[2]);
+		fd = open(KI_USER_SAFE_MODE, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
 		if (fd < 0) {
 			fprintf(stderr, "%s: create %s: %s\n",
 				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
@@ -918,6 +921,8 @@ static int cmd_safemode(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_DISABLE)) {
+		if (argc > 2)
+			return cli_unexpected_argument("kicmd safemode disable", argv[2]);
 		if (unlink(KI_USER_SAFE_MODE) && errno != ENOENT) {
 			fprintf(stderr, "%s: remove %s: %s\n",
 				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
@@ -1063,6 +1068,8 @@ static int cmd_config(int argc, char **argv)
 
 	if (!strcmp(argv[1], KICMD_SUB_ACTIVE) || !strcmp(argv[1], KICMD_SUB_INACTIVE)) {
 		bool active = !strcmp(argv[1], KICMD_SUB_ACTIVE);
+		if (argc > 2)
+			return cli_unexpected_argument(active ? "kicmd config active" : "kicmd config inactive", argv[2]);
 		ret = cfg_set_active_and_ioctl(active);
 		if (ret)
 			return ret;
@@ -1512,7 +1519,11 @@ int main(int argc, char **argv)
 	}
 	if (!strcmp(argv[1], KICMD_CMD_HELP)) return cmd_help(argc - 1, argv + 1);
 	if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) { print_help(); return 0; }
-	if (!strcmp(argv[1], KICMD_CMD_VERSION) || !strcmp(argv[1], "-V") || !strcmp(argv[1], "--version")) return print_version();
+	if (!strcmp(argv[1], KICMD_CMD_VERSION) || !strcmp(argv[1], "-V") || !strcmp(argv[1], "--version")) {
+		if (argc > 2)
+			return cli_unexpected_argument("kicmd version", argv[2]);
+		return print_version();
+	}
 	if (!strcmp(argv[1], KICMD_CMD_SAFEMODE)) return cmd_safemode(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_CONFIG)) return cmd_config(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_LIST)) return cmd_list(argc - 1, argv + 1);
