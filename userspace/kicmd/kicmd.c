@@ -1331,7 +1331,7 @@ static int cmd_help(int argc, char **argv)
 	else if (!strcmp(argv[1], KICMD_CMD_CONFIG)) fputs(kicmd_help_config, stdout);
 	else if (!strcmp(argv[1], KICMD_CMD_LIST)) fputs(kicmd_help_list, stdout);
 	else if (!strcmp(argv[1], KICMD_CMD_FUNC)) fputs(kicmd_help_func, stdout);
-	else return fprintf(stderr, "%s: unknown command: %s\n", KICMD_NAME, argv[1]), 1;
+	else return 1;
 	return 0;
 }
 
