@@ -9,7 +9,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-static int filesystem_mount(int argc, char **argv)
+int filesystem_mount(int argc, char **argv)
 {
 	struct ki_ioc_filesystem_mount request;
 	int fd;
@@ -106,7 +106,7 @@ static int filesystem_mount(int argc, char **argv)
 	return 0;
 }
 
-static int filesystem_func(int argc, char **argv)
+int filesystem_func(int argc, char **argv)
 {
 	int fd;
 	struct ki_ioc_real real;
