@@ -9,12 +9,12 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-static int process_check_func(void)
+int process_check_func(void)
 {
 	return check_kfunc_feature("process", KI_KFUNC_FEATURE_FUNC);
 }
 
-static int list_process(void)
+int list_process(void)
 {
 	struct ki_ioc_process_entry entry;
 	unsigned int index = 0;
@@ -34,7 +34,7 @@ static int list_process(void)
 	}
 }
 
-static int process_info( pid_t pid)
+int process_info( pid_t pid)
 {
 	struct ki_ioc_process_info info;
 
@@ -57,7 +57,7 @@ static int process_info( pid_t pid)
 	return 0;
 }
 
-static int process_read_memory( pid_t pid,
+int process_read_memory( pid_t pid,
 			       unsigned long long address, unsigned int size)
 {
 	struct ki_ioc_process_read read;
@@ -83,7 +83,7 @@ static int process_read_memory( pid_t pid,
 	return 0;
 }
 
-static int process_signal( pid_t pid, bool tree)
+int process_signal( pid_t pid, bool tree)
 {
 	struct ki_ioc_process_pid request;
 
@@ -95,7 +95,7 @@ static int process_signal( pid_t pid, bool tree)
 	return 0;
 }
 
-static int cmd_list_process(int argc, char **argv)
+int cmd_list_process(int argc, char **argv)
 {
 	pid_t pid;
 	int ret;
@@ -126,7 +126,7 @@ static int cmd_list_process(int argc, char **argv)
 	return ret;
 }
 
-static int cmd_func_process(int argc, char **argv)
+int cmd_func_process(int argc, char **argv)
 {
 	pid_t pid;
 	unsigned long long address;
