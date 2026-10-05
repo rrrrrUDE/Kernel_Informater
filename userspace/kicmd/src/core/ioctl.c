@@ -8,13 +8,13 @@ int ki_ioctl(unsigned long request, void *arg)
 {
 	int ret;
 
-	if (ki_driver_fd < 0) {
+	if (!ki_driver_available()) {
 		errno = ENODEV;
 		return -1;
 	}
 
 	do {
-		ret = ioctl(ki_driver_fd, request, arg);
+		ret = ioctl(ki_get_fd(), request, arg);
 	} while (ret < 0 && errno == EINTR);
 
 	return ret;
@@ -51,16 +51,16 @@ int ioctl_value(unsigned long request, const char *kfunc, const char *key, const
 		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
 			fprintf(stderr, "Error: kfunc '%s' does not support func: %s\n", kfunc, strerror(-feature_ret));
-			close(fd);
+			close_ki();
 			return 1;
 		}
 	}
 	if (ki_ioctl(request, &v) < 0) {
 		fprintf(stderr, "Error: ioctl: %s\n", strerror(errno));
-		close(fd);
+		close_ki();
 		return 1;
 	}
-	close(fd);
+	close_ki();
 	return 0;
 }
 
