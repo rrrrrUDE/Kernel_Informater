@@ -1,3 +1,4 @@
+#include "../../include/kicmd_internal.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -162,8 +163,7 @@ int cmd_list(int argc, char **argv)
 	close(fd);
 	debug_log("list %s", kfunc ? kfunc : "all");
 	return 0;
-}#include "../../include/kicmd_internal.h"
-#include <errno.h>
+}#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
