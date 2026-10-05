@@ -1,3 +1,4 @@
+#include "../../include/kicmd_internal.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -211,8 +212,7 @@ int cmd_func_process(int argc, char **argv)
 
 	close(fd);
 	return ret;
-}#include "../../include/kicmd_internal.h"
-#include <errno.h>
+}#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
