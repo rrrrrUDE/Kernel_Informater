@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-#define _POSIX_C_SOURCE 200809L
 #include "../../include/kicmd_internal.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -54,7 +52,9 @@ int write_config_with_transform(const char *replace_key,
 	FILE *in = NULL;
 	FILE *out = NULL;
 	int fd = -1;
-	char tmp_path[] = KICMD_CONFIG_TMP;
+	char tmp_path[PATH_MAX];
+	pid_t pid = getpid();
+	unsigned int attempt;
 	char line[KICMD_CONFIG_LINE_MAX];
 	bool replaced = false;
 	int ret;
@@ -67,9 +67,20 @@ int write_config_with_transform(const char *replace_key,
 	if (!in && errno != ENOENT)
 		return -errno;
 
-	fd = mkstemp(tmp_path);
+	fd = -1;
+	for (attempt = 0; attempt < 100; attempt++) {
+		int flags = O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC;
+
+		snprintf(tmp_path, sizeof(tmp_path), "%s/.config.tmp.%ld.%u",
+			KICMD_USER_DIR, (long)pid, attempt);
+		fd = open(tmp_path, flags, 0600);
+		if (fd >= 0)
+			break;
+		if (errno != EEXIST)
+			break;
+	}
 	if (fd < 0) {
-		ret = -errno;
+		ret = errno == EEXIST ? -EEXIST : -errno;
 		if (in)
 			fclose(in);
 		return ret;
