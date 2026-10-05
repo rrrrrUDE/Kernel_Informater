@@ -9,7 +9,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-static int cfg_sync(void)
+int cfg_sync(void)
 {
 	int ret;
 
@@ -27,7 +27,7 @@ static int cfg_sync(void)
 	return 0;
 }
 
-static int cfg_set_active_and_ioctl(bool active)
+int cfg_set_active_and_ioctl(bool active)
 {
 	int fd;
 	int ret;
@@ -81,13 +81,13 @@ static int cfg_set_active_and_ioctl(bool active)
 	return 0;
 }
 
-static int cfg_set_active(bool active)
+int cfg_set_active(bool active)
 {
 	return write_config_with_transform("active", active ? "1" : "0",
 					  NULL, NULL, false, true);
 }
 
-static int cfg_set(const char *kfunc, const char *key, const char *value)
+int cfg_set(const char *kfunc, const char *key, const char *value)
 {
 	char compound[KI_UAPI_KFUNC_MAX + KI_UAPI_KEY_MAX + 2];
 
@@ -98,7 +98,7 @@ static int cfg_set(const char *kfunc, const char *key, const char *value)
 	return write_config_with_transform(compound, value, NULL, NULL, false, true);
 }
 
-static int cfg_unset(const char *kfunc, const char *key)
+int cfg_unset(const char *kfunc, const char *key)
 {
 	char compound[KI_UAPI_KFUNC_MAX + KI_UAPI_KEY_MAX + 2];
 
@@ -109,7 +109,7 @@ static int cfg_unset(const char *kfunc, const char *key)
 	return write_config_with_transform(NULL, NULL, NULL, compound, false, false);
 }
 
-static int cfg_reset_kfunc(const char *kfunc)
+int cfg_reset_kfunc(const char *kfunc)
 {
 	char prefix[KI_UAPI_KFUNC_MAX + 2];
 
@@ -119,12 +119,12 @@ static int cfg_reset_kfunc(const char *kfunc)
 	return write_config_with_transform(NULL, NULL, prefix, NULL, false, false);
 }
 
-static int cfg_reset_all(void)
+int cfg_reset_all(void)
 {
 	return write_config_with_transform("active", "0", NULL, NULL, true, true);
 }
 
-static void cfg_list(const char *kfunc)
+void cfg_list(const char *kfunc)
 {
 	FILE *fp;
 	char line[KICMD_CONFIG_LINE_MAX];
@@ -158,7 +158,7 @@ static void cfg_list(const char *kfunc)
 	fclose(fp);
 }
 
-static int cmd_config(int argc, char **argv)
+int cmd_config(int argc, char **argv)
 {
 	const char *kfunc;
 	const char *key;
