@@ -9,7 +9,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-static int list_kernel_lines( unsigned int type)
+int list_kernel_lines( unsigned int type)
 {
 	struct ki_ioc_list_line line;
 	unsigned int index = 0;
@@ -28,7 +28,7 @@ static int list_kernel_lines( unsigned int type)
 	}
 }
 
-static int list_real_one(const char *kfunc, const char *key)
+int list_real_one(const char *kfunc, const char *key)
 {
 	struct ki_ioc_real real;
 
@@ -48,7 +48,7 @@ static int list_real_one(const char *kfunc, const char *key)
 	return 0;
 }
 
-static int list_real_kfunc(const char *kfunc)
+int list_real_kfunc(const char *kfunc)
 {
 	struct ki_ioc_real_key_info info;
 	unsigned int index = 0;
@@ -71,7 +71,7 @@ static int list_real_kfunc(const char *kfunc)
 	}
 }
 
-static int cmd_list(int argc, char **argv)
+int cmd_list(int argc, char **argv)
 {
 	int fd;
 	unsigned int index = 0;
