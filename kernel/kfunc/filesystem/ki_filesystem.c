@@ -17,7 +17,6 @@
 #include <linux/rcupdate.h>
 #include <linux/kallsyms.h>
 #include <linux/mount.h>
-#include <uapi/linux/mount.h>
 #include <linux/uaccess.h>
 
 #include "ki.h"
