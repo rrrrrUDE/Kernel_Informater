@@ -310,7 +310,6 @@ long ki_filesystem_mount(const struct ki_ioc_filesystem_mount *request)
 			return target_len;
 		if (target_len >= sizeof(target))
 			return -ENAMETOOLONG;
-			return -ENAMETOOLONG;
 		if (!capable(CAP_SYS_ADMIN))
 			return -EPERM;
 
