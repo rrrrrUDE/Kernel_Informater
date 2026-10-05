@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int cmd_help(int argc, char **argv)
+int cmd_help(int argc, char **argv)
 {
 	if (argc < 2) {
 		print_help();
