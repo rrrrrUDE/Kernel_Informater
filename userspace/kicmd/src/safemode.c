@@ -9,7 +9,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-static int cmd_safemode(int argc, char **argv)
+int cmd_safemode(int argc, char **argv)
 {
 	int ret;
 
