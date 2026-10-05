@@ -9,7 +9,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-static int ioctl_value(unsigned long request,
+int ioctl_value(unsigned long request,
 		       const char *kfunc, const char *key, const char *value)
 {
 	struct ki_ioc_value v;
@@ -40,7 +40,7 @@ memset(&v, 0, sizeof(v));
 	return 0;
 }
 
-static int ioctl_key(unsigned long request, const char *kfunc, const char *key)
+int ioctl_key(unsigned long request, const char *kfunc, const char *key)
 {
 	struct ki_ioc_key v;
 	int fd;
@@ -68,7 +68,7 @@ memset(&v, 0, sizeof(v));
 	return 0;
 }
 
-static int ioctl_kfunc(unsigned long request, const char *kfunc)
+int ioctl_kfunc(unsigned long request, const char *kfunc)
 {
 	struct ki_ioc_kfunc v;
 	int fd;
@@ -95,7 +95,7 @@ memset(&v, 0, sizeof(v));
 	return 0;
 }
 
-static int cmd_func(int argc, char **argv)
+int cmd_func(int argc, char **argv)
 {
 	int ret;
 
