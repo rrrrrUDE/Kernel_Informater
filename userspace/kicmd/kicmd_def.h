@@ -105,10 +105,10 @@ static const char kicmd_help_func[] =
 	"  reset [<kfunc>]                       Reset temporary runtime values\n"
 	"  process <COMMAND>                     Manage process information and memory\n"
 	"  module <COMMAND>                      Load or remove kernel modules\n"
-	"  filesystem <COMMAND>                 Query filesystem information\n"
+	"  filesystem <COMMAND>                 Query filesystem and mount operations\n"
 	"  help                                  Print help\n"
 	"\n"
 	"Options:\n"
 	"  -h, --help                            Print help\n";
 
-#endif /* KICMD_DEF_H */ /* KICMD_DEF_H */
+#endif /* KICMD_DEF_H */

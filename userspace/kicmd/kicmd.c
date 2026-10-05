@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -108,6 +109,25 @@ static int cli_unexpected_argument(const char *usage, const char *argument)
 	return 1;
 }
 
+static int cli_invalid_argument(const char *usage, const char *argument)
+{
+	fprintf(stderr,
+		"error: invalid value for <%s>\n\n"
+		"Usage: %s\n\n"
+		"For more information, try '--help'.\n",
+		argument ? argument : "argument", usage);
+	return 1;
+}
+
+static int cli_result(int ret)
+{
+	if (ret < 0) {
+		fprintf(stderr, "Error: %s\n", strerror(-ret));
+		return 1;
+	}
+	return ret;
+}
+
 static int ki_ioctl(unsigned long request, void *arg);
 static void close_ki(void);
 static int ki_driver_fd = -1;
@@ -143,8 +163,8 @@ static void module_report_error(const char *operation, const char *name, int err
 	char buf[4096];
 	ssize_t n;
 
-	fprintf(stderr, "%s: %s %s: %s\n",
-		KICMD_NAME, operation, name ? name : "module", reason);
+	fprintf(stderr, "Error: %s %s: %s\n",
+		operation, name ? name : "module", reason);
 
 	/*
 	 * Like ksud, inspect the kernel log after a module-load failure so
@@ -168,7 +188,7 @@ static void module_report_error(const char *operation, const char *name, int err
 			    strstr(line, "version magic") ||
 			    strstr(line, "invalid module") ||
 			    strstr(line, "module verification failed")) {
-				fprintf(stderr, "%s: kernel: %s\n", KICMD_NAME, line);
+				fprintf(stderr, "Error: kernel: %s\n", line);
 			}
 			line = next;
 			if (!next)
@@ -290,13 +310,81 @@ static int module_func(int argc, char **argv)
 	if (ret < 0) {
 		int error = errno;
 		module_report_error("insmod", argv[2], error);
-		return -error;
+		return 1;
 	}
 	debug_log("module insmod %s", argv[2]);
 	return 0;
 }
 
 static int open_ki_checked(void);
+
+static int filesystem_mount(int argc, char **argv)
+{
+	if (argc < 2)
+		return cli_missing_argument("kicmd func filesystem mount <COMMAND>", "COMMAND");
+
+	if (!strcmp(argv[1], KICMD_CMD_HELP) || !strcmp(argv[1], "-h") ||
+	    !strcmp(argv[1], "--help")) {
+		fputs("Usage: kicmd func filesystem mount <COMMAND>\n\n"
+		      "Commands:\n"
+		      "  add <source> <target>       Add a bind mount\n"
+		      "  umount <target>             Unmount a mount point\n"
+		      "  hot_unmount <target>        Lazy-unmount a mount point\n"
+		      "  help                        Print help\n\n"
+		      "Options:\n"
+		      "  -h, --help                  Print help\n", stdout);
+		return 0;
+	}
+
+	if (!strcmp(argv[1], "add")) {
+		if (argc < 4)
+			return cli_missing_argument("kicmd func filesystem mount add <source> <target>",
+				argc < 3 ? "source" : "target");
+		if (argc > 4)
+			return cli_unexpected_argument(
+				"kicmd func filesystem mount add <source> <target>", argv[4]);
+
+#ifdef SYS_mount
+		if (syscall(SYS_mount, argv[2], argv[3], NULL, MS_BIND, NULL) < 0)
+			return -errno;
+#else
+		return -ENOSYS;
+#endif
+		printf("- Mounted %s -> %s\n", argv[2], argv[3]);
+		return 0;
+	}
+
+	if (!strcmp(argv[1], "umount") || !strcmp(argv[1], "hot_unmount")) {
+		const char *usage = !strcmp(argv[1], "umount") ?
+			"kicmd func filesystem mount umount <target>" :
+			"kicmd func filesystem mount hot_unmount <target>";
+		int flags = !strcmp(argv[1], "hot_unmount") ? MNT_DETACH : 0;
+
+		if (argc < 3)
+			return cli_missing_argument(usage, "target");
+		if (argc > 3)
+			return cli_unexpected_argument(usage, argv[3]);
+
+#ifdef SYS_umount2
+		if (syscall(SYS_umount2, argv[2], flags) < 0)
+			return -errno;
+#else
+		return -ENOSYS;
+#endif
+		printf("- Unmounted %s%s\n", argv[2],
+		       flags ? " (lazy)" : "");
+		return 0;
+	}
+
+	{
+		static const char *const commands[] = {
+			"add", "umount", "hot_unmount", KICMD_CMD_HELP
+		};
+		return cli_unknown_command("subcommand", argv[1],
+			"kicmd func filesystem mount <COMMAND>", commands,
+			sizeof(commands) / sizeof(commands[0]));
+	}
+}
 
 static int filesystem_func(int argc, char **argv)
 {
@@ -310,12 +398,16 @@ static int filesystem_func(int argc, char **argv)
 	    !strcmp(argv[1], "--help")) {
 		fputs("Usage: kicmd func filesystem <COMMAND>\n\n"
 		      "Commands:\n"
-		      "  stat <path>  Show filesystem information\n"
-		      "  help         Print help\n\n"
+		      "  stat <path>              Show filesystem information\n"
+		      "  mount <COMMAND>          Manage mount operations\n"
+		      "  help                     Print help\n\n"
 		      "Options:\n"
 		      "  -h, --help   Print help\n", stdout);
 		return 0;
 	}
+	if (!strcmp(argv[1], "mount"))
+		return filesystem_mount(argc - 1, argv + 1);
+
 	if (strcmp(argv[1], "stat")) {
 		static const char *const commands[] = { "stat", KICMD_CMD_HELP };
 		return cli_unknown_command("subcommand", argv[1],
@@ -328,7 +420,7 @@ static int filesystem_func(int argc, char **argv)
 		return cli_unexpected_argument("kicmd func filesystem stat <path>", argv[3]);
 
 	if (strlen(argv[2]) + 5 >= KI_UAPI_KEY_MAX)
-		return -EINVAL;
+		return cli_invalid_argument("kicmd func filesystem stat <path>", "path");
 
 	fd = open_ki_checked();
 	if (fd < 0)
@@ -380,8 +472,7 @@ static int print_version(void)
 
 	memset(&version, 0, sizeof(version));
 	if (ki_ioctl( KI_IOC_GET_VERSION, &version) < 0) {
-		fprintf(stderr, "%s: get kernel version: %s\n",
-			KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: get kernel version: %s\n", strerror(errno));
 		close_ki();
 		return 1;
 	}
@@ -404,16 +495,14 @@ static int ensure_userd_dir(void)
 
 	if (!stat(KI_USER_DIR, &st)) {
 		if (!S_ISDIR(st.st_mode)) {
-			fprintf(stderr, "%s: %s is not a directory\n",
-				KICMD_NAME, KI_USER_DIR);
+			fprintf(stderr, "Error: %s is not a directory\n", KI_USER_DIR);
 			return -ENOTDIR;
 		}
 		return 0;
 	}
 
 	if (mkdir(KI_USER_DIR, 0700) && errno != EEXIST) {
-		fprintf(stderr, "%s: mkdir %s: %s\n",
-			KICMD_NAME, KI_USER_DIR, strerror(errno));
+		fprintf(stderr, "Error: mkdir %s: %s\n", KI_USER_DIR, strerror(errno));
 		return -errno;
 	}
 
@@ -450,8 +539,7 @@ static int open_ki(void)
 
 	ki_driver_fd = open(KI_DEVICE_PATH, O_RDWR | O_CLOEXEC);
 	if (ki_driver_fd < 0) {
-		fprintf(stderr, "%s: Kernel Informater driver is not built in\n",
-			KICMD_NAME);
+		fprintf(stderr, "Error: Kernel Informater driver is not built in\n");
 		return -1;
 	}
 
@@ -469,8 +557,7 @@ static int open_ki_checked(void)
 
 	memset(&version, 0, sizeof(version));
 	if (ki_ioctl(KI_IOC_GET_VERSION, &version) < 0) {
-		fprintf(stderr, "%s: Kernel Informater driver check failed: %s\n",
-			KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: Kernel Informater driver check failed: %s\n", strerror(errno));
 		close(ki_driver_fd);
 		ki_driver_fd = -1;
 		return -1;
@@ -500,8 +587,7 @@ static int cfg_sync(void)
 
 	ret = ki_ioctl( KI_IOC_CONFIG_SYNC, NULL);
 	if (ret < 0) {
-		fprintf(stderr, "%s: config sync: %s\n",
-			KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: config sync: %s\n", strerror(errno));
 		close_ki();
 		return 1;
 	}
@@ -522,8 +608,7 @@ static int cfg_set_active_and_ioctl(bool active)
 	if (!active) {
 		ret = cfg_set_active(false);
 		if (ret) {
-			fprintf(stderr, "%s: save config: %s\n",
-				KICMD_NAME, strerror(-ret));
+			fprintf(stderr, "Error: save config: %s\n", strerror(-ret));
 			close(fd);
 			return 1;
 		}
@@ -531,8 +616,7 @@ static int cfg_set_active_and_ioctl(bool active)
 		if (ret < 0) {
 			int saved_errno = errno;
 			cfg_set_active(true);
-			fprintf(stderr, "%s: config inactive: %s\n",
-				KICMD_NAME, strerror(saved_errno));
+			fprintf(stderr, "Error: config inactive: %s\n", strerror(saved_errno));
 			close(fd);
 			return 1;
 		}
@@ -543,8 +627,7 @@ static int cfg_set_active_and_ioctl(bool active)
 
 	ret = cfg_set_active(true);
 	if (ret) {
-		fprintf(stderr, "%s: save config: %s\n",
-			KICMD_NAME, strerror(-ret));
+		fprintf(stderr, "Error: save config: %s\n", strerror(-ret));
 		close(fd);
 		return 1;
 	}
@@ -553,8 +636,7 @@ static int cfg_set_active_and_ioctl(bool active)
 	if (ret < 0) {
 		int saved_errno = errno;
 		cfg_set_active(false);
-		fprintf(stderr, "%s: config active: %s\n",
-			KICMD_NAME, strerror(saved_errno));
+		fprintf(stderr, "Error: config active: %s\n", strerror(saved_errno));
 		close(fd);
 		return 1;
 	}
@@ -779,8 +861,7 @@ static void cfg_list(const char *kfunc)
 			printf("(no persistent configuration)\n");
 			return;
 		}
-		fprintf(stderr, "%s: read %s: %s\n",
-			KICMD_NAME, KI_USER_CONFIG, strerror(errno));
+		fprintf(stderr, "Error: read %s: %s\n", KI_USER_CONFIG, strerror(errno));
 		return;
 	}
 
@@ -819,14 +900,13 @@ memset(&v, 0, sizeof(v));
 	{
 		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
-			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
-				KICMD_NAME, kfunc, strerror(-feature_ret));
+			fprintf(stderr, "Error: kfunc '%s' does not support func: %s\n", kfunc, strerror(-feature_ret));
 			close(fd);
 			return 1;
 		}
 	}
 	if (ki_ioctl( request, &v) < 0) {
-		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: ioctl: %s\n", strerror(errno));
 		close(fd);
 		return 1;
 	}
@@ -848,14 +928,13 @@ memset(&v, 0, sizeof(v));
 	{
 		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
-			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
-				KICMD_NAME, kfunc, strerror(-feature_ret));
+			fprintf(stderr, "Error: kfunc '%s' does not support func: %s\n", kfunc, strerror(-feature_ret));
 			close_ki();
 			return 1;
 		}
 	}
 	if (ki_ioctl( request, &v) < 0) {
-		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: ioctl: %s\n", strerror(errno));
 		close_ki();
 		return 1;
 	}
@@ -876,14 +955,13 @@ memset(&v, 0, sizeof(v));
 	if (kfunc && *kfunc) {
 		int feature_ret = check_kfunc_feature(kfunc, KI_KFUNC_FEATURE_FUNC);
 		if (feature_ret) {
-			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
-				KICMD_NAME, kfunc, strerror(-feature_ret));
+			fprintf(stderr, "Error: kfunc '%s' does not support func: %s\n", kfunc, strerror(-feature_ret));
 			close_ki();
 			return 1;
 		}
 	}
 	if (ki_ioctl( request, &v) < 0) {
-		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
+		fprintf(stderr, "Error: ioctl: %s\n", strerror(errno));
 		close_ki();
 		return 1;
 	}
@@ -911,8 +989,8 @@ static int cmd_safemode(int argc, char **argv)
 			return cli_unexpected_argument("kicmd safemode enable", argv[2]);
 		fd = open(KI_USER_SAFE_MODE, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
 		if (fd < 0) {
-			fprintf(stderr, "%s: create %s: %s\n",
-				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
+			fprintf(stderr, "Error: create %s: %s\n",
+				KI_USER_SAFE_MODE, strerror(errno));
 			return 1;
 		}
 		close(fd);
@@ -924,8 +1002,8 @@ static int cmd_safemode(int argc, char **argv)
 		if (argc > 2)
 			return cli_unexpected_argument("kicmd safemode disable", argv[2]);
 		if (unlink(KI_USER_SAFE_MODE) && errno != ENOENT) {
-			fprintf(stderr, "%s: remove %s: %s\n",
-				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
+			fprintf(stderr, "Error: remove %s: %s\n",
+				KI_USER_SAFE_MODE, strerror(errno));
 			return 1;
 		}
 		debug_log("safemode disable");
@@ -950,8 +1028,11 @@ static int cmd_config(int argc, char **argv)
 
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
-		if (argc != 5)
-			return fprintf(stderr, "%s: usage: config set <kfunc> <key> <value>\n", KICMD_NAME), 1;
+		if (argc < 5)
+			return cli_missing_argument("kicmd config set <kfunc> <key> <value>",
+				argc < 3 ? "kfunc" : argc < 4 ? "key" : "value");
+		if (argc > 5)
+			return cli_unexpected_argument("kicmd config set <kfunc> <key> <value>", argv[5]);
 		kfunc = argv[2]; key = argv[3]; value = argv[4];
 {
 			int fd = open_ki_checked();
@@ -963,7 +1044,7 @@ static int cmd_config(int argc, char **argv)
 		if (!ret)
 			ret = cfg_set(kfunc, key, value);
 		if (ret)
-			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: save config: %s\n", strerror(-ret)), 1;
 		ret = cfg_sync();
 		if (ret)
 			return ret;
@@ -972,8 +1053,11 @@ static int cmd_config(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_UNSET)) {
-		if (argc != 4)
-			return fprintf(stderr, "%s: usage: config unset <kfunc> <key>\n", KICMD_NAME), 1;
+		if (argc < 4)
+			return cli_missing_argument("kicmd config unset <kfunc> <key>",
+				argc < 3 ? "kfunc" : "key");
+		if (argc > 4)
+			return cli_unexpected_argument("kicmd config unset <kfunc> <key>", argv[4]);
 		kfunc = argv[2]; key = argv[3];
 {
 			int fd = open_ki_checked();
@@ -985,7 +1069,7 @@ static int cmd_config(int argc, char **argv)
 		if (!ret)
 			ret = cfg_unset(kfunc, key);
 		if (ret)
-			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: save config: %s\n", strerror(-ret)), 1;
 		ret = cfg_sync();
 		if (ret)
 			return ret;
@@ -994,17 +1078,17 @@ static int cmd_config(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_DEL)) {
-		if (argc < 3 || argc > 4 || !argv[2] || !*argv[2] ||
-		    !valid_token(argv[2]))
-			return fprintf(stderr,
-				"%s: usage: config del <kfunc> [key]\n",
-				KICMD_NAME), 1;
+		if (argc < 3)
+			return cli_missing_argument("kicmd config del <kfunc> [key]", "kfunc");
+		if (argc > 4)
+			return cli_unexpected_argument("kicmd config del <kfunc> [key]", argv[4]);
+		if (!argv[2] || !*argv[2] || !valid_token(argv[2]))
+			return cli_invalid_argument("kicmd config del <kfunc> [key]", "kfunc");
 
 		kfunc = argv[2];
 		key = (argc == 4 && argv[3] && *argv[3]) ? argv[3] : NULL;
 		if (key && !valid_token(key))
-			return fprintf(stderr,
-				"%s: invalid config key\n", KICMD_NAME), 1;
+			return cli_invalid_argument("kicmd config del <kfunc> [key]", "key");
 		{
 			int fd = open_ki_checked();
 			if (fd < 0)
@@ -1013,16 +1097,14 @@ static int cmd_config(int argc, char **argv)
 			close(fd);
 		}
 		if (ret)
-			return fprintf(stderr, "%s: kfunc '%s' does not support config: %s\n",
-				KICMD_NAME, kfunc, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: kfunc '%s' does not support config: %s\n", kfunc, strerror(-ret)), 1;
 
 		if (key && *key)
 			ret = cfg_unset(kfunc, key);
 		else
 			ret = cfg_reset_kfunc(kfunc);
 		if (ret)
-			return fprintf(stderr, "%s: delete config: %s\n",
-				KICMD_NAME, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: delete config: %s\n", strerror(-ret)), 1;
 
 		ret = cfg_sync();
 		if (ret)
@@ -1036,7 +1118,7 @@ static int cmd_config(int argc, char **argv)
 
 	if (!strcmp(argv[1], KICMD_SUB_RESET)) {
 		if (argc > 3)
-			return fprintf(stderr, "%s: usage: config reset [<kfunc>]\n", KICMD_NAME), 1;
+			return cli_unexpected_argument("kicmd config reset [<kfunc>]", argv[3]);
 		if (argc == 3) {
 			kfunc = argv[2];
 			{
@@ -1049,7 +1131,7 @@ static int cmd_config(int argc, char **argv)
 			if (!ret)
 				ret = cfg_reset_kfunc(kfunc);
 			if (ret)
-				return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+				return fprintf(stderr, "Error: save config: %s\n", strerror(-ret)), 1;
 			ret = cfg_sync();
 		if (ret)
 			return ret;
@@ -1058,7 +1140,7 @@ static int cmd_config(int argc, char **argv)
 		}
 		ret = cfg_reset_all();
 		if (ret)
-			return fprintf(stderr, "%s: save config: %s\n", KICMD_NAME, strerror(-ret)), 1;
+			return fprintf(stderr, "Error: save config: %s\n", strerror(-ret)), 1;
 		ret = cfg_sync();
 		if (ret)
 			return ret;
@@ -1079,7 +1161,7 @@ static int cmd_config(int argc, char **argv)
 
 	if (!strcmp(argv[1], KICMD_SUB_LIST)) {
 		if (argc > 3)
-			return fprintf(stderr, "%s: usage: config list [<kfunc>]\n", KICMD_NAME), 1;
+			return cli_unexpected_argument("kicmd config list [<kfunc>]", argv[3]);
 cfg_list(argc == 3 ? argv[2] : NULL);
 		return 0;
 	}
@@ -1143,17 +1225,14 @@ static int cmd_list(int argc, char **argv)
 		return 0;
 	}
 	if (argc >= 2 && !strcmp(argv[1], "process")) {
-		if (argc > 3) {
-			fputs(kicmd_help_list, stdout);
-			return 1;
-		}
+		if (argc > 3)
+			return cli_unexpected_argument("kicmd list process [<pid>]", argv[3]);
 		fd = open_ki_checked();
 		if (fd < 0)
 			return 1;
 		ret = cmd_list_process(argc - 1, argv + 1);
 		if (ret) {
-			fprintf(stderr, "%s: list process: %s\n",
-				KICMD_NAME, strerror(-ret));
+			fprintf(stderr, "Error: list process: %s\n", strerror(-ret));
 			close(fd);
 			return 1;
 		}
@@ -1170,10 +1249,8 @@ static int cmd_list(int argc, char **argv)
 		close(fd);
 		return ret ? 1 : 0;
 	}
-	if (argc > 2) {
-		fputs(kicmd_help_list, stdout);
-		return 1;
-	}
+	if (argc > 2)
+		return cli_unexpected_argument("kicmd list [<kfunc>]", argv[2]);
 	if (argc == 2)
 		kfunc = argv[1];
 
@@ -1216,11 +1293,8 @@ static int cmd_list(int argc, char **argv)
 	}
 
 	if (ret) {
-		fprintf(stderr, "%s: list%s%s: %s\n",
-			KICMD_NAME, kfunc ? " " : "", kfunc ? kfunc : "all",
-			strerror(-ret));
 		close(fd);
-		return 1;
+		return cli_result(ret);
 	}
 
 	close(fd);
@@ -1257,14 +1331,27 @@ static int parse_u64(const char *s, unsigned long long *value)
 	return 0;
 }
 
+static int cli_parse_pid(const char *usage, const char *argument,
+			 const char *value, pid_t *pid)
+{
+	int ret = parse_pid(value, pid);
+	if (ret)
+		return cli_invalid_argument(usage, argument);
+	return 0;
+}
+
+static int cli_parse_u64(const char *usage, const char *argument,
+			  const char *value, unsigned long long *number)
+{
+	int ret = parse_u64(value, number);
+	if (ret)
+		return cli_invalid_argument(usage, argument);
+	return 0;
+}
+
 static int process_check_func(void)
 {
-	int ret = check_kfunc_feature("process", KI_KFUNC_FEATURE_FUNC);
-
-	if (ret)
-		fprintf(stderr, "%s: kfunc 'process' does not support func: %s\n",
-			KICMD_NAME, strerror(-ret));
-	return ret;
+	return check_kfunc_feature("process", KI_KFUNC_FEATURE_FUNC);
 }
 
 static int list_process(void)
@@ -1353,15 +1440,27 @@ static int cmd_list_process(int argc, char **argv)
 	pid_t pid;
 	int ret;
 
+	if (argc >= 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help") ||
+			!strcmp(argv[1], "help"))) {
+		fputs("Usage: kicmd list process [<pid>]\n\n"
+		      "Show all visible processes or information for one PID.\n\n"
+		      "Options:\n"
+		      "  -h, --help   Print help\n", stdout);
+		return 0;
+	}
+
+	if (argc > 2)
+		return cli_unexpected_argument("kicmd list process [<pid>]", argv[2]);
+
 	if (argc == 2) {
-		ret = parse_pid(argv[1], &pid);
+		ret = cli_parse_pid("kicmd list process [<pid>]", "pid", argv[1], &pid);
 		if (ret)
 			return ret;
 		ret = process_info(pid);
 	} else if (argc == 1) {
 		ret = list_process();
 	} else {
-		return -EINVAL;
+		return cli_unexpected_argument("kicmd list process [<pid>]", argv[2]);
 	}
 
 	return ret;
@@ -1404,26 +1503,42 @@ static int cmd_func_process(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], "info")) {
-		if (argc != 3 || parse_pid(argv[2], &pid))
-			ret = -EINVAL;
-		else
+		if (argc < 3)
+			return cli_missing_argument("kicmd func process info <pid>", "pid");
+		if (argc > 3)
+			return cli_unexpected_argument("kicmd func process info <pid>", argv[3]);
+		ret = cli_parse_pid("kicmd func process info <pid>", "pid", argv[2], &pid);
+		if (!ret)
 			ret = process_info(pid);
 	} else if (!strcmp(argv[1], "read_memory")) {
-		if (argc != 5 || parse_pid(argv[2], &pid) ||
-		    parse_u64(argv[3], &address)) {
-			ret = -EINVAL;
-		} else {
+		if (argc < 5)
+			return cli_missing_argument("kicmd func process read_memory <pid> <address> <size>",
+				argc < 3 ? "pid" : argc < 4 ? "address" : "size");
+		if (argc > 5)
+			return cli_unexpected_argument("kicmd func process read_memory <pid> <address> <size>", argv[5]);
+		ret = cli_parse_pid("kicmd func process read_memory <pid> <address> <size>",
+			"pid", argv[2], &pid);
+		if (!ret)
+			ret = cli_parse_u64("kicmd func process read_memory <pid> <address> <size>",
+				"address", argv[3], &address);
+		if (!ret) {
 			errno = 0;
 			size = strtoul(argv[4], &endp, 0);
 			if (errno || *endp || !size || size > KI_UAPI_PROCESS_READ_MAX)
-				ret = -EINVAL;
-			else
-				ret = process_read_memory(pid, address, (unsigned int)size);
+				return cli_invalid_argument(
+					"kicmd func process read_memory <pid> <address> <size>", "size");
+			ret = process_read_memory(pid, address, (unsigned int)size);
 		}
 	} else if (!strcmp(argv[1], "kill") || !strcmp(argv[1], "kill_tree")) {
-		if (argc != 3 || parse_pid(argv[2], &pid))
-			ret = -EINVAL;
-		else
+		const char *usage = !strcmp(argv[1], "kill") ?
+			"kicmd func process kill <pid>" :
+			"kicmd func process kill_tree <pid>";
+		if (argc < 3)
+			return cli_missing_argument(usage, "pid");
+		if (argc > 3)
+			return cli_unexpected_argument(usage, argv[3]);
+		ret = cli_parse_pid(usage, "pid", argv[2], &pid);
+		if (!ret)
 			ret = process_signal(pid, !strcmp(argv[1], "kill_tree"));
 	} else {
 		static const char *const commands[] = {
@@ -1517,16 +1632,16 @@ int main(int argc, char **argv)
 		print_help();
 		return 0;
 	}
-	if (!strcmp(argv[1], KICMD_CMD_HELP)) return cmd_help(argc - 1, argv + 1);
+	if (!strcmp(argv[1], KICMD_CMD_HELP)) return cli_result(cmd_help(argc - 1, argv + 1));
 	if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) { print_help(); return 0; }
 	if (!strcmp(argv[1], KICMD_CMD_VERSION) || !strcmp(argv[1], "-V") || !strcmp(argv[1], "--version")) {
 		if (argc > 2)
 			return cli_unexpected_argument("kicmd version", argv[2]);
-		return print_version();
+		return cli_result(print_version());
 	}
-	if (!strcmp(argv[1], KICMD_CMD_SAFEMODE)) return cmd_safemode(argc - 1, argv + 1);
-	if (!strcmp(argv[1], KICMD_CMD_CONFIG)) return cmd_config(argc - 1, argv + 1);
-	if (!strcmp(argv[1], KICMD_CMD_LIST)) return cmd_list(argc - 1, argv + 1);
-	if (!strcmp(argv[1], KICMD_CMD_FUNC)) return cmd_func(argc - 1, argv + 1);
+	if (!strcmp(argv[1], KICMD_CMD_SAFEMODE)) return cli_result(cmd_safemode(argc - 1, argv + 1));
+	if (!strcmp(argv[1], KICMD_CMD_CONFIG)) return cli_result(cmd_config(argc - 1, argv + 1));
+	if (!strcmp(argv[1], KICMD_CMD_LIST)) return cli_result(cmd_list(argc - 1, argv + 1));
+	if (!strcmp(argv[1], KICMD_CMD_FUNC)) return cli_result(cmd_func(argc - 1, argv + 1));
 	{ static const char *const commands[] = { KICMD_CMD_SAFEMODE, KICMD_CMD_CONFIG, KICMD_CMD_LIST, KICMD_CMD_FUNC, KICMD_CMD_HELP, KICMD_CMD_VERSION }; return cli_unknown_command("command", argv[1], "kicmd <COMMAND>", commands, sizeof(commands) / sizeof(commands[0])); }
 }
