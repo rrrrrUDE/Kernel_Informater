@@ -1015,7 +1015,7 @@ static int cmd_safemode(int argc, char **argv)
 	}
 
 	if (require_ki_driver() < 0)
-		return -ENODEV;
+		return 1;
 
 	ret = ensure_userd_dir();
 	if (ret)
@@ -1065,7 +1065,7 @@ static int cmd_config(int argc, char **argv)
 	}
 
 	if (require_ki_driver() < 0)
-		return -ENODEV;
+		return 1;
 
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
@@ -1265,7 +1265,7 @@ static int cmd_list(int argc, char **argv)
 		return 0;
 	}
 	if (require_ki_driver() < 0)
-		return -ENODEV;
+		return 1;
 
 	if (argc >= 2 && !strcmp(argv[1], "process")) {
 		if (argc > 3)
@@ -1612,7 +1612,7 @@ static int cmd_func(int argc, char **argv)
 	 * Kernel Informater, so they intentionally bypass the driver check.
 	 */
 	if (strcmp(argv[1], "module") && require_ki_driver() < 0)
-		return -ENODEV;
+		return 1;
 
 	if (!strcmp(argv[1], "process"))
 		return cmd_func_process(argc - 1, argv + 1);
