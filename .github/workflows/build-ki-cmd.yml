@@ -63,6 +63,7 @@ jobs:
           test -x "$CC"
           mkdir -p "$OUT_DIR"
 
+          # Compile every module in the layered kicmd source tree.
           mapfile -t SOURCES < <(find "$GITHUB_WORKSPACE/userspace/kicmd/src" -type f -name '*.c' | sort)
           test "${#SOURCES[@]}" -gt 0
 
