@@ -44,22 +44,8 @@ static int ki_copy_ioc_kfunc(struct ki_ioc_kfunc *dst, unsigned long arg)
 	return 0;
 }
 
-static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long ki_ioctl_dispatch(unsigned int cmd, unsigned long arg)
 {
-	(void)file;
-
-	/* Keep the ioctl boundary strict, similar to KernelSU's dispatcher:
-	 * reject foreign command families and malformed encoded sizes before
-	 * touching userspace memory. */
-	if (_IOC_TYPE(cmd) != KI_IOC_MAGIC)
-		return -ENOTTY;
-	if (_IOC_NR(cmd) > KI_IOCTL_NR_LIST_LINE)
-		return -ENOTTY;
-	if (_IOC_SIZE(cmd) > PAGE_SIZE)
-		return -EINVAL;
-	if (_IOC_SIZE(cmd) && !arg)
-		return -EFAULT;
-
 	switch (cmd) {
 	case KI_IOC_GET_VERSION: {
 		struct ki_ioc_version version = {
@@ -293,6 +279,24 @@ out_process_read:
 	default:
 		return -ENOTTY;
 	}
+}
+
+static long ki_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	(void)file;
+
+	/* Keep the external ABI stable while separating entry validation from
+	 * command dispatch, following the KSU-style ioctl layering. */
+	if (_IOC_TYPE(cmd) != KI_IOC_MAGIC)
+		return -ENOTTY;
+	if (_IOC_NR(cmd) > KI_IOCTL_NR_LIST_LINE)
+		return -ENOTTY;
+	if (_IOC_SIZE(cmd) > PAGE_SIZE)
+		return -EINVAL;
+	if (_IOC_SIZE(cmd) && !arg)
+		return -EFAULT;
+
+	return ki_ioctl_dispatch(cmd, arg);
 }
 
 static const struct file_operations ki_fops = {
