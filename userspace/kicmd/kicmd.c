@@ -379,7 +379,7 @@ static int filesystem_mount(int argc, char **argv)
 
 	fd = open_ki_checked();
 	if (fd < 0)
-		return -ENODEV;
+		return 1;
 
 	ret = ki_ioctl(KI_IOC_FILESYSTEM_MOUNT, &request);
 	close_ki();
