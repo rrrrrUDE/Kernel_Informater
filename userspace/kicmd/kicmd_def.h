@@ -46,8 +46,8 @@ static const char kicmd_help[] =
 	"Commands:\n"
 	"  safemode        Manage Kernel Informater safe mode\n"
 	"  config          Manage persistent Kernel Informater configurations\n"
-	"  list            Show real kernel information and process information\n"
-	"  func            Manage temporary runtime kernel information\n"
+	"  list            Show unmodified kernel information and process information\n"
+	"  func            Manage temporary runtime kernel functions\n"
 	"  help            Print this message or the help of the given subcommand(s)\n"
 	"  version         Print version\n"
 	"\n"
@@ -83,38 +83,32 @@ static const char kicmd_help_config[] =
 	"  -h, --help                   Print help\n";
 
 static const char kicmd_help_list[] =
-	"Usage: kicmd list [<kfunc>] [<pid>]\n"
+	"Usage: kicmd list [<kfunc>]\n"
 	"\n"
-	"Show real kernel information or process information before Kernel Informater modifications.\n"
+	"Show unmodified kernel information or process information.\n"
 	"\n"
-	"Process:\n"
-	"  list process             List visible processes\n"
-	"  list process <pid>       Show process information\n"
-	"  list module              List loaded kernel modules\n"
-	"  list filesystem          List current filesystem mount entries\n"
+	"Commands:\n"
+	"  process [<pid>]       List processes or show process information\n"
+	"  module                List loaded kernel modules\n"
+	"  filesystem            List current filesystem mount entries\n"
+	"  <kfunc>               Show real information for a kernel function\n"
 	"\n"
 	"Options:\n"
-	"  -h, --help   Print help\n";
+	"  -h, --help            Print help\n";
 
 static const char kicmd_help_func[] =
 	"Usage: kicmd func <COMMAND>\n"
 	"\n"
 	"Commands:\n"
-	"  set <kfunc> <key> <value>    Set temporary runtime value\n"
-	"  unset <kfunc> <key>          Remove temporary runtime value\n"
-	"  reset [<kfunc>]              Reset temporary runtime values\n"
-	"  process info <pid>           Show process information\n"
-	"  process read_memory <pid> <address> <size>  Read process memory\n"
-	"  process kill <pid>           Kill one process\n"
-	"  process kill_tree <pid>      Kill a process and its descendants\n"
-	"  module insmod <path> [args...]  Load a kernel module\n"
-	"  module rmmod <name>           Remove a kernel module\n"
-	"  mount add <source> <target>    Add a bind mount\n"
-	"  mount umount <target>          Unmount a mount point\n"
-	"  mount hot_unmount <target>     Lazy-unmount a mount point\n"
-	"  help                         Print help\n"
+	"  set <kfunc> <key> <value>             Set temporary runtime value\n"
+	"  unset <kfunc> <key>                   Remove temporary runtime value\n"
+	"  reset [<kfunc>]                       Reset temporary runtime values\n"
+	"  process <COMMAND>                     Manage process information and memory\n"
+	"  module <COMMAND>                      Load or remove kernel modules\n"
+	"  filesystem <COMMAND>                 Query filesystem information\n"
+	"  help                                  Print help\n"
 	"\n"
 	"Options:\n"
-	"  -h, --help                   Print help\n";
+	"  -h, --help                            Print help\n";
 
-#endif /* KICMD_DEF_H */
+#endif /* KICMD_DEF_H */ /* KICMD_DEF_H */

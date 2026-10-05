@@ -48,31 +48,66 @@ static bool cli_command_matches(const char *input, const char *candidate)
 
 static void cli_print_suggestions(const char *input, const char *const *commands, size_t count)
 {
-    size_t i;
-    bool printed = false;
-    for (i = 0; i < count; i++) {
-        if (!cli_command_matches(input, commands[i])) continue;
-        if (!printed) { fputs("\n  tip: ", stderr); printed = true; }
-        else fputs(", ", stderr);
-        fprintf(stderr, "'%s'", commands[i]);
-    }
-    if (printed) fputc('\n', stderr);
+	size_t i;
+	size_t matches = 0;
+	const char *last = NULL;
+
+	for (i = 0; i < count; i++) {
+		if (cli_command_matches(input, commands[i])) {
+			matches++;
+			last = commands[i];
+		}
+	}
+
+	if (!matches)
+		return;
+
+	if (matches == 1)
+		fprintf(stderr, "\n  tip: a similar command exists: '%s'\n", last);
+	else {
+		fputs("\n  tip: some similar commands exist: ", stderr);
+		matches = 0;
+		for (i = 0; i < count; i++) {
+			if (!cli_command_matches(input, commands[i]))
+				continue;
+			if (matches++)
+				fputs(", ", stderr);
+			fprintf(stderr, "'%s'", commands[i]);
+		}
+		fputc('\n', stderr);
+	}
 }
 
 static int cli_unknown_command(const char *scope, const char *command, const char *usage, const char *const *commands, size_t count)
 {
-    fprintf(stderr, "error: unrecognized %s '%s'\n\n", scope, command ? command : "");
-    fprintf(stderr, "Usage: %s\n\n", usage);
-    cli_print_suggestions(command, commands, count);
-    fprintf(stderr, "For more information, try '--help'.\n");
-    return 1;
+	fprintf(stderr, "error: unrecognized %s '%s'\n", scope, command ? command : "");
+	cli_print_suggestions(command, commands, count);
+	fprintf(stderr, "\nUsage: %s\n\n", usage);
+	fprintf(stderr, "For more information, try '--help'.\n");
+	return 1;
 }
 
 static int cli_missing_argument(const char *usage, const char *argument)
 {
-    fprintf(stderr, "error: the following required arguments were not provided:\n  <%s>\n\nUsage: %s\n\nFor more information, try '--help'.\n", argument, usage);
-    return 1;
+	fprintf(stderr,
+		"error: the following required arguments were not provided:\n"
+		"  <%s>\n\n"
+		"Usage: %s\n\n"
+		"For more information, try '--help'.\n",
+		argument, usage);
+	return 1;
 }
+
+static int cli_unexpected_argument(const char *usage, const char *argument)
+{
+	fprintf(stderr,
+		"error: unexpected argument '%s'\n\n"
+		"Usage: %s\n\n"
+		"For more information, try '--help'.\n",
+		argument ? argument : "", usage);
+	return 1;
+}
+
 static int ki_ioctl(unsigned long request, void *arg);
 static void close_ki(void);
 static int ki_driver_fd = -1;
@@ -179,11 +214,27 @@ static int module_func(int argc, char **argv)
 	int ret;
 
 	if (argc < 2)
-		return -EINVAL;
+		return cli_missing_argument("kicmd func module <COMMAND>", "COMMAND");
+
+	if (!strcmp(argv[1], KICMD_CMD_HELP) || !strcmp(argv[1], "-h") ||
+	    !strcmp(argv[1], "--help")) {
+		fputs("Usage: kicmd func module <COMMAND>\n\n"
+		      "Commands:\n"
+		      "  insmod <path> [args...]  Load a kernel module\n"
+		      "  rmmod <name>             Remove a kernel module\n"
+		      "  help                     Print help\n\n"
+		      "Options:\n"
+		      "  -h, --help               Print help\n", stdout);
+		return 0;
+	}
 
 	if (!strcmp(argv[1], "rmmod")) {
-		if (argc != 3 || !argv[2][0])
-			return -EINVAL;
+		if (argc < 3)
+			return cli_missing_argument("kicmd func module rmmod <name>", "name");
+		if (argc > 3)
+			return cli_unexpected_argument("kicmd func module rmmod <name>", argv[3]);
+		if (!argv[2][0])
+			return cli_missing_argument("kicmd func module rmmod <name>", "name");
 #ifdef SYS_delete_module
 		ret = (int)syscall(SYS_delete_module, argv[2], 0);
 		if (ret < 0) {
@@ -198,8 +249,14 @@ static int module_func(int argc, char **argv)
 #endif
 	}
 
-	if (strcmp(argv[1], "insmod") || argc < 3)
-		return -EINVAL;
+	if (strcmp(argv[1], "insmod")) {
+		static const char *const commands[] = { "insmod", "rmmod", KICMD_CMD_HELP };
+		return cli_unknown_command("subcommand", argv[1],
+			"kicmd func module <COMMAND>", commands,
+			sizeof(commands) / sizeof(commands[0]));
+	}
+	if (argc < 3)
+		return cli_missing_argument("kicmd func module insmod <path> [args...]", "path");
 
 	fd = open(argv[2], O_RDONLY | O_CLOEXEC);
 	if (fd < 0)
@@ -246,8 +303,29 @@ static int filesystem_func(int argc, char **argv)
 	int fd;
 	struct ki_ioc_real real;
 
-	if (argc != 3 || strcmp(argv[1], "stat"))
-		return -EINVAL;
+	if (argc < 2)
+		return cli_missing_argument("kicmd func filesystem <COMMAND>", "COMMAND");
+
+	if (!strcmp(argv[1], KICMD_CMD_HELP) || !strcmp(argv[1], "-h") ||
+	    !strcmp(argv[1], "--help")) {
+		fputs("Usage: kicmd func filesystem <COMMAND>\n\n"
+		      "Commands:\n"
+		      "  stat <path>  Show filesystem information\n"
+		      "  help         Print help\n\n"
+		      "Options:\n"
+		      "  -h, --help   Print help\n", stdout);
+		return 0;
+	}
+	if (strcmp(argv[1], "stat")) {
+		static const char *const commands[] = { "stat", KICMD_CMD_HELP };
+		return cli_unknown_command("subcommand", argv[1],
+			"kicmd func filesystem <COMMAND>", commands,
+			sizeof(commands) / sizeof(commands[0]));
+	}
+	if (argc < 3)
+		return cli_missing_argument("kicmd func filesystem stat <path>", "path");
+	if (argc > 3)
+		return cli_unexpected_argument("kicmd func filesystem stat <path>", argv[3]);
 
 	if (strlen(argv[2]) + 5 >= KI_UAPI_KEY_MAX)
 		return -EINVAL;
@@ -828,7 +906,10 @@ static int cmd_safemode(int argc, char **argv)
 		return 1;
 
 	if (!strcmp(argv[1], KICMD_SUB_ENABLE)) {
-		int fd = open(KI_USER_SAFE_MODE, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
+		int fd;
+		if (argc > 2)
+			return cli_unexpected_argument("kicmd safemode enable", argv[2]);
+		fd = open(KI_USER_SAFE_MODE, O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
 		if (fd < 0) {
 			fprintf(stderr, "%s: create %s: %s\n",
 				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
@@ -840,6 +921,8 @@ static int cmd_safemode(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_DISABLE)) {
+		if (argc > 2)
+			return cli_unexpected_argument("kicmd safemode disable", argv[2]);
 		if (unlink(KI_USER_SAFE_MODE) && errno != ENOENT) {
 			fprintf(stderr, "%s: remove %s: %s\n",
 				KICMD_NAME, KI_USER_SAFE_MODE, strerror(errno));
@@ -985,6 +1068,8 @@ static int cmd_config(int argc, char **argv)
 
 	if (!strcmp(argv[1], KICMD_SUB_ACTIVE) || !strcmp(argv[1], KICMD_SUB_INACTIVE)) {
 		bool active = !strcmp(argv[1], KICMD_SUB_ACTIVE);
+		if (argc > 2)
+			return cli_unexpected_argument(active ? "kicmd config active" : "kicmd config inactive", argv[2]);
 		ret = cfg_set_active_and_ioctl(active);
 		if (ret)
 			return ret;
@@ -1292,7 +1377,21 @@ static int cmd_func_process(int argc, char **argv)
 	int ret;
 
 	if (argc < 2)
-		return -EINVAL;
+		return cli_missing_argument("kicmd func process <COMMAND>", "COMMAND");
+
+	if (!strcmp(argv[1], KICMD_CMD_HELP) || !strcmp(argv[1], "-h") ||
+	    !strcmp(argv[1], "--help")) {
+		fputs("Usage: kicmd func process <COMMAND>\n\n"
+		      "Commands:\n"
+		      "  info <pid>                         Show process information\n"
+		      "  read_memory <pid> <address> <size> Read process memory\n"
+		      "  kill <pid>                         Kill one process\n"
+		      "  kill_tree <pid>                    Kill a process and its descendants\n"
+		      "  help                               Print help\n\n"
+		      "Options:\n"
+		      "  -h, --help                         Print help\n", stdout);
+		return 0;
+	}
 
 	fd = open_ki_checked();
 	if (fd < 0)
@@ -1327,7 +1426,13 @@ static int cmd_func_process(int argc, char **argv)
 		else
 			ret = process_signal(pid, !strcmp(argv[1], "kill_tree"));
 	} else {
-		ret = -EINVAL;
+		static const char *const commands[] = {
+			"info", "read_memory", "kill", "kill_tree", KICMD_CMD_HELP
+		};
+		close(fd);
+		return cli_unknown_command("subcommand", argv[1],
+			"kicmd func process <COMMAND>", commands,
+			sizeof(commands) / sizeof(commands[0]));
 	}
 
 	close(fd);
@@ -1352,16 +1457,22 @@ static int cmd_func(int argc, char **argv)
 		return filesystem_func(argc - 1, argv + 1);
 
 	if (!strcmp(argv[1], KICMD_SUB_SET)) {
-		if (argc != 5)
-			return fprintf(stderr, "%s: usage: func set <kfunc> <key> <value>\n", KICMD_NAME), 1;
+		if (argc < 5)
+			return cli_missing_argument("kicmd func set <kfunc> <key> <value>",
+				argc < 3 ? "kfunc" : argc < 4 ? "key" : "value");
+		if (argc > 5)
+			return cli_unexpected_argument("kicmd func set <kfunc> <key> <value>", argv[5]);
 		ret = ioctl_value(KI_IOC_FUNC_VALUE_SET, argv[2], argv[3], argv[4]);
 		debug_log("func set %s.%s=%s", argv[2], argv[3], argv[4]);
 		return ret;
 	}
 
 	if (!strcmp(argv[1], KICMD_SUB_UNSET)) {
-		if (argc != 4)
-			return fprintf(stderr, "%s: usage: func unset <kfunc> <key>\n", KICMD_NAME), 1;
+		if (argc < 4)
+			return cli_missing_argument("kicmd func unset <kfunc> <key>",
+				argc < 3 ? "kfunc" : "key");
+		if (argc > 4)
+			return cli_unexpected_argument("kicmd func unset <kfunc> <key>", argv[4]);
 		ret = ioctl_key(KI_IOC_FUNC_VALUE_UNSET, argv[2], argv[3]);
 		debug_log("func unset %s.%s", argv[2], argv[3]);
 		return ret;
@@ -1369,7 +1480,7 @@ static int cmd_func(int argc, char **argv)
 
 	if (!strcmp(argv[1], KICMD_SUB_RESET)) {
 		if (argc > 3)
-			return fprintf(stderr, "%s: usage: func reset [<kfunc>]\n", KICMD_NAME), 1;
+			return cli_unexpected_argument("kicmd func reset [<kfunc>]", argv[3]);
 		ret = ioctl_kfunc(KI_IOC_FUNC_KFUNC_RESET, argc == 3 ? argv[2] : "");
 		debug_log("func reset %s", argc == 3 ? argv[2] : "all");
 		return ret;
@@ -1388,7 +1499,14 @@ static int cmd_help(int argc, char **argv)
 	else if (!strcmp(argv[1], KICMD_CMD_CONFIG)) fputs(kicmd_help_config, stdout);
 	else if (!strcmp(argv[1], KICMD_CMD_LIST)) fputs(kicmd_help_list, stdout);
 	else if (!strcmp(argv[1], KICMD_CMD_FUNC)) fputs(kicmd_help_func, stdout);
-	else return 1;
+	else {
+		static const char *const commands[] = {
+			KICMD_CMD_SAFEMODE, KICMD_CMD_CONFIG, KICMD_CMD_LIST,
+			KICMD_CMD_FUNC, KICMD_CMD_VERSION, KICMD_CMD_HELP
+		};
+		return cli_unknown_command("command", argv[1], "kicmd help <COMMAND>",
+			commands, sizeof(commands) / sizeof(commands[0]));
+	}
 	return 0;
 }
 
@@ -1401,7 +1519,11 @@ int main(int argc, char **argv)
 	}
 	if (!strcmp(argv[1], KICMD_CMD_HELP)) return cmd_help(argc - 1, argv + 1);
 	if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) { print_help(); return 0; }
-	if (!strcmp(argv[1], KICMD_CMD_VERSION) || !strcmp(argv[1], "-V") || !strcmp(argv[1], "--version")) return print_version();
+	if (!strcmp(argv[1], KICMD_CMD_VERSION) || !strcmp(argv[1], "-V") || !strcmp(argv[1], "--version")) {
+		if (argc > 2)
+			return cli_unexpected_argument("kicmd version", argv[2]);
+		return print_version();
+	}
 	if (!strcmp(argv[1], KICMD_CMD_SAFEMODE)) return cmd_safemode(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_CONFIG)) return cmd_config(argc - 1, argv + 1);
 	if (!strcmp(argv[1], KICMD_CMD_LIST)) return cmd_list(argc - 1, argv + 1);
