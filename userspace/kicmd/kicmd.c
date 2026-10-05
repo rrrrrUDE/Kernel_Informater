@@ -15,7 +15,9 @@
 
 #include "kicmd_def.h"
 
-static int ki_ioctl(int fd, unsigned long request, void *arg);
+static int ki_ioctl(unsigned long request, void *arg);
+static int ki_driver_fd = -1;
+static bool ki_driver_checked;
 static int ensure_userd_dir(void);
 static bool ki_debug_enabled(void);
 static int ioctl_value(unsigned long request,
@@ -30,7 +32,7 @@ static int list_kernel_lines(int fd, unsigned int type)
 		memset(&line, 0, sizeof(line));
 		line.type = type;
 		line.index = index;
-		if (ki_ioctl(fd, KI_IOC_LIST_LINE, &line) < 0) {
+		if (ki_ioctl( KI_IOC_LIST_LINE, &line) < 0) {
 			if (errno == ENOENT)
 				return 0;
 			return -errno;
@@ -199,13 +201,13 @@ static int filesystem_func(int argc, char **argv)
 	strncpy(real.kfunc, "filesystem", sizeof(real.kfunc) - 1);
 	snprintf(real.key, sizeof(real.key), "stat:%s", argv[2]);
 
-	if (ki_ioctl(fd, KI_IOC_GET_REAL_INFO, &real) < 0) {
+	if (ki_ioctl( KI_IOC_GET_REAL_INFO, &real) < 0) {
 		int saved_errno = errno;
-		close(fd);
+		close_ki();
 		return -saved_errno;
 	}
 
-	close(fd);
+	close_ki();
 	printf("%s.%s=%s\n", real.kfunc, real.key, real.value);
 	return 0;
 }
@@ -222,7 +224,7 @@ static int check_kfunc_feature(int fd, const char *kfunc, unsigned int feature)
 	memset(&info, 0, sizeof(info));
 	strncpy(info.kfunc, kfunc, sizeof(info.kfunc) - 1);
 
-	if (ki_ioctl(fd, KI_IOC_GET_KFUNC_FEATURES, &info) < 0)
+	if (ki_ioctl( KI_IOC_GET_KFUNC_FEATURES, &info) < 0)
 		return -errno;
 	if (!(info.features & feature))
 		return -EOPNOTSUPP;
@@ -240,14 +242,14 @@ static int print_version(void)
 		return 1;
 
 	memset(&version, 0, sizeof(version));
-	if (ki_ioctl(fd, KI_IOC_GET_VERSION, &version) < 0) {
+	if (ki_ioctl( KI_IOC_GET_VERSION, &version) < 0) {
 		fprintf(stderr, "%s: get kernel version: %s\n",
 			KICMD_NAME, strerror(errno));
-		close(fd);
+		close_ki();
 		return 1;
 	}
 
-	close(fd);
+	close_ki();
 	printf("kernel:%u.%u.%u\n",
 	       version.major, version.minor, version.patch);
 	printf("userspace:%s\n", KICMD_VERSION_STRING);
@@ -297,7 +299,7 @@ static bool ki_debug_enabled(void)
 	}
 
 	memset(&debug, 0, sizeof(debug));
-	if (ki_ioctl(fd, KI_IOC_GET_DEBUG, &debug) < 0) {
+	if (ki_ioctl( KI_IOC_GET_DEBUG, &debug) < 0) {
 		close(fd);
 		cached = 0;
 		return false;
@@ -310,37 +312,46 @@ static bool ki_debug_enabled(void)
 
 static int open_ki(void)
 {
-	int fd = open(KI_DEVICE_PATH, O_RDWR | O_CLOEXEC);
+	if (ki_driver_fd >= 0)
+		return ki_driver_fd;
 
-	if (fd < 0) {
+	ki_driver_fd = open(KI_DEVICE_PATH, O_RDWR | O_CLOEXEC);
+	if (ki_driver_fd < 0) {
 		fprintf(stderr, "%s: Kernel Informater driver is not built in\n",
 			KICMD_NAME);
 		return -1;
 	}
 
-	return fd;
+	return ki_driver_fd;
 }
 
 static int open_ki_checked(void)
 {
-	int fd = open_ki();
+	struct ki_ioc_version version;
 
-	if (fd < 0)
+	if (ki_driver_checked && ki_driver_fd >= 0)
+		return ki_driver_fd;
+	if (open_ki() < 0)
 		return -1;
-	{
-		struct ki_ioc_version version;
-		memset(&version, 0, sizeof(version));
-		if (ki_ioctl(fd, KI_IOC_GET_VERSION, &version) < 0) {
-			if (errno == ENOTTY || errno == ENOSYS)
-				fprintf(stderr, "%s: Kernel Informater driver is not built in\n", KICMD_NAME);
-			else
-				fprintf(stderr, "%s: Kernel Informater driver check failed: %s\n",
-					KICMD_NAME, strerror(errno));
-			close(fd);
-			return -1;
-		}
+
+	memset(&version, 0, sizeof(version));
+	if (ioctl(ki_driver_fd, KI_IOC_GET_VERSION, &version) < 0) {
+		fprintf(stderr, "%s: Kernel Informater driver check failed: %s\n",
+			KICMD_NAME, strerror(errno));
+		close(ki_driver_fd);
+		ki_driver_fd = -1;
+		return -1;
 	}
-	return fd;
+	ki_driver_checked = true;
+	return ki_driver_fd;
+}
+
+static void close_ki(void)
+{
+	if (ki_driver_fd >= 0)
+		close(ki_driver_fd);
+	ki_driver_fd = -1;
+	ki_driver_checked = false;
 }
 
 static int cfg_set_active(bool active);
@@ -356,7 +367,7 @@ static int cfg_sync(void)
 	if (fd < 0)
 		return 1;
 
-	ret = ki_ioctl(fd, KI_IOC_CONFIG_SYNC, NULL);
+	ret = ki_ioctl( KI_IOC_CONFIG_SYNC, NULL);
 	if (ret < 0) {
 		fprintf(stderr, "%s: config sync: %s\n",
 			KICMD_NAME, strerror(errno));
@@ -385,7 +396,7 @@ static int cfg_set_active_and_ioctl(bool active)
 			close(fd);
 			return 1;
 		}
-		ret = ki_ioctl(fd, KI_IOC_CONFIG_OFF, NULL);
+		ret = ki_ioctl( KI_IOC_CONFIG_OFF, NULL);
 		if (ret < 0) {
 			int saved_errno = errno;
 			cfg_set_active(true);
@@ -407,7 +418,7 @@ static int cfg_set_active_and_ioctl(bool active)
 		return 1;
 	}
 
-	ret = ki_ioctl(fd, KI_IOC_CONFIG_ON, NULL);
+	ret = ki_ioctl( KI_IOC_CONFIG_ON, NULL);
 	if (ret < 0) {
 		int saved_errno = errno;
 		cfg_set_active(false);
@@ -426,26 +437,17 @@ static int cfg_set_active_and_ioctl(bool active)
 	return 0;
 }
 
-static int ki_ioctl(int fd, unsigned long request, void *arg)
+static int ki_ioctl(unsigned long request, void *arg)
 {
 	int ret;
 
-	/*
-	 * KernelSU keeps its userspace control path intentionally thin:
-	 * obtain the driver fd, issue the UAPI request, and centralize the
-	 * EINTR handling/error boundary here.
-	 *
-	 * Keep the existing fd lifetime model in kicmd for now, so this is
-	 * an implementation refactor only. KI_IOC_* request codes, numbers,
-	 * payload structures and ABI are unchanged.
-	 */
-	if (fd < 0) {
-		errno = EBADF;
+	if (ki_driver_fd < 0) {
+		errno = ENODEV;
 		return -1;
 	}
 
 	do {
-		ret = ioctl(fd, request, arg);
+		ret = ioctl(ki_driver_fd, request, arg);
 	} while (ret < 0 && errno == EINTR);
 
 	return ret;
@@ -692,7 +694,7 @@ memset(&v, 0, sizeof(v));
 			return 1;
 		}
 	}
-	if (ki_ioctl(fd, request, &v) < 0) {
+	if (ki_ioctl( request, &v) < 0) {
 		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
 		close(fd);
 		return 1;
@@ -717,16 +719,16 @@ memset(&v, 0, sizeof(v));
 		if (feature_ret) {
 			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
 				KICMD_NAME, kfunc, strerror(-feature_ret));
-			close(fd);
+			close_ki();
 			return 1;
 		}
 	}
-	if (ki_ioctl(fd, request, &v) < 0) {
+	if (ki_ioctl( request, &v) < 0) {
 		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
-		close(fd);
+		close_ki();
 		return 1;
 	}
-	close(fd);
+	close_ki();
 	return 0;
 }
 
@@ -745,16 +747,16 @@ memset(&v, 0, sizeof(v));
 		if (feature_ret) {
 			fprintf(stderr, "%s: kfunc '%s' does not support func: %s\n",
 				KICMD_NAME, kfunc, strerror(-feature_ret));
-			close(fd);
+			close_ki();
 			return 1;
 		}
 	}
-	if (ki_ioctl(fd, request, &v) < 0) {
+	if (ki_ioctl( request, &v) < 0) {
 		fprintf(stderr, "%s: ioctl: %s\n", KICMD_NAME, strerror(errno));
-		close(fd);
+		close_ki();
 		return 1;
 	}
-	close(fd);
+	close_ki();
 	return 0;
 }
 
@@ -961,7 +963,7 @@ static int list_real_one(int fd, const char *kfunc, const char *key)
 		if (feature_ret)
 			return feature_ret;
 	}
-	if (ki_ioctl(fd, KI_IOC_GET_REAL_INFO, &real) < 0)
+	if (ki_ioctl( KI_IOC_GET_REAL_INFO, &real) < 0)
 		return -errno;
 
 	printf("%s.%s=%s\n", real.kfunc, real.key, real.value);
@@ -978,7 +980,7 @@ static int list_real_kfunc(int fd, const char *kfunc)
 		memset(&info, 0, sizeof(info));
 		info.index = index;
 		strncpy(info.kfunc, kfunc, sizeof(info.kfunc) - 1);
-		ret = ki_ioctl(fd, KI_IOC_GET_REAL_KEY_LIST, &info);
+		ret = ki_ioctl( KI_IOC_GET_REAL_KEY_LIST, &info);
 		if (ret < 0) {
 			if (errno == ENOENT && index > 0)
 				return 0;
@@ -1059,7 +1061,7 @@ static int cmd_list(int argc, char **argv)
 
 			memset(&info, 0, sizeof(info));
 			info.index = index++;
-			ret = ki_ioctl(fd, KI_IOC_GET_KFUNC_LIST, &info);
+			ret = ki_ioctl( KI_IOC_GET_KFUNC_LIST, &info);
 			if (ret < 0) {
 				if (errno == ENOENT && index > 0) {
 					ret = 0;
@@ -1137,7 +1139,7 @@ static int list_process(int fd)
 	for (;;) {
 		memset(&entry, 0, sizeof(entry));
 		entry.index = index++;
-		if (ki_ioctl(fd, KI_IOC_PROCESS_LIST, &entry) < 0) {
+		if (ki_ioctl( KI_IOC_PROCESS_LIST, &entry) < 0) {
 			if (errno == ENOENT && index > 0)
 				return 0;
 			return -errno;
@@ -1154,7 +1156,7 @@ static int process_info(int fd, pid_t pid)
 
 	memset(&info, 0, sizeof(info));
 	info.pid = pid;
-	if (ki_ioctl(fd, KI_IOC_PROCESS_INFO, &info) < 0)
+	if (ki_ioctl( KI_IOC_PROCESS_INFO, &info) < 0)
 		return -errno;
 
 	printf("pid:%d\n", info.pid);
@@ -1185,7 +1187,7 @@ static int process_read_memory(int fd, pid_t pid,
 	read.address = address;
 	read.size = size;
 
-	if (ki_ioctl(fd, KI_IOC_PROCESS_READ_MEMORY, &read) < 0)
+	if (ki_ioctl( KI_IOC_PROCESS_READ_MEMORY, &read) < 0)
 		return -errno;
 
 	for (i = 0; i < read.size; i++) {
@@ -1203,7 +1205,7 @@ static int process_signal(int fd, pid_t pid, bool tree)
 
 	memset(&request, 0, sizeof(request));
 	request.pid = pid;
-	if (ki_ioctl(fd, tree ? KI_IOC_PROCESS_KILL_TREE : KI_IOC_PROCESS_KILL,
+	if (ki_ioctl( tree ? KI_IOC_PROCESS_KILL_TREE : KI_IOC_PROCESS_KILL,
 		     &request) < 0)
 		return -errno;
 	return 0;
@@ -1340,6 +1342,7 @@ static int cmd_help(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+	atexit(close_ki);
 	if (argc < 2) {
 		print_help();
 		return 0;
