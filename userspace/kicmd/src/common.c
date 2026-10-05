@@ -14,7 +14,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "../kicmd_internal.h"
+#include "kicmd_def.h"
 
  size_t cli_edit_distance(const char *a, const char *b)
 {
