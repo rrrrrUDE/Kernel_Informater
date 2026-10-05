@@ -128,6 +128,24 @@ static int cli_result(int ret)
 	return ret;
 }
 
+static int cli_parse_pid(const char *usage, const char *argument,
+			 const char *value, pid_t *pid)
+{
+	int ret = parse_pid(value, pid);
+	if (ret)
+		return cli_invalid_argument(usage, argument);
+	return 0;
+}
+
+static int cli_parse_u64(const char *usage, const char *argument,
+			  const char *value, unsigned long long *number)
+{
+	int ret = parse_u64(value, number);
+	if (ret)
+		return cli_invalid_argument(usage, argument);
+	return 0;
+}
+
 static int ki_ioctl(unsigned long request, void *arg);
 static void close_ki(void);
 static int ki_driver_fd = -1;
@@ -350,7 +368,7 @@ static int filesystem_mount(int argc, char **argv)
 #else
 		return -ENOSYS;
 #endif
-		printf("Mounted %s -> %s\n", argv[2], argv[3]);
+		printf("- Mounted %s -> %s\n", argv[2], argv[3]);
 		return 0;
 	}
 
@@ -371,7 +389,7 @@ static int filesystem_mount(int argc, char **argv)
 #else
 		return -ENOSYS;
 #endif
-		printf("Unmounted %s%s\n", argv[2],
+		printf("- Unmounted %s%s\n", argv[2],
 		       flags ? " (lazy)" : "");
 		return 0;
 	}
@@ -398,8 +416,9 @@ static int filesystem_func(int argc, char **argv)
 	    !strcmp(argv[1], "--help")) {
 		fputs("Usage: kicmd func filesystem <COMMAND>\n\n"
 		      "Commands:\n"
-		      "  stat <path>  Show filesystem information\n"
-		      "  help         Print help\n\n"
+		      "  stat <path>              Show filesystem information\n"
+		      "  mount <COMMAND>          Manage mount operations\n"
+		      "  help                     Print help\n\n"
 		      "Options:\n"
 		      "  -h, --help   Print help\n", stdout);
 		return 0;
@@ -1488,26 +1507,42 @@ static int cmd_func_process(int argc, char **argv)
 	}
 
 	if (!strcmp(argv[1], "info")) {
-		if (argc != 3 || parse_pid(argv[2], &pid))
-			ret = -EINVAL;
-		else
+		if (argc < 3)
+			return cli_missing_argument("kicmd func process info <pid>", "pid");
+		if (argc > 3)
+			return cli_unexpected_argument("kicmd func process info <pid>", argv[3]);
+		ret = cli_parse_pid("kicmd func process info <pid>", "pid", argv[2], &pid);
+		if (!ret)
 			ret = process_info(pid);
 	} else if (!strcmp(argv[1], "read_memory")) {
-		if (argc != 5 || parse_pid(argv[2], &pid) ||
-		    parse_u64(argv[3], &address)) {
-			ret = -EINVAL;
-		} else {
+		if (argc < 5)
+			return cli_missing_argument("kicmd func process read_memory <pid> <address> <size>",
+				argc < 3 ? "pid" : argc < 4 ? "address" : "size");
+		if (argc > 5)
+			return cli_unexpected_argument("kicmd func process read_memory <pid> <address> <size>", argv[5]);
+		ret = cli_parse_pid("kicmd func process read_memory <pid> <address> <size>",
+			"pid", argv[2], &pid);
+		if (!ret)
+			ret = cli_parse_u64("kicmd func process read_memory <pid> <address> <size>",
+				"address", argv[3], &address);
+		if (!ret) {
 			errno = 0;
 			size = strtoul(argv[4], &endp, 0);
 			if (errno || *endp || !size || size > KI_UAPI_PROCESS_READ_MAX)
-				ret = -EINVAL;
-			else
-				ret = process_read_memory(pid, address, (unsigned int)size);
+				return cli_invalid_argument(
+					"kicmd func process read_memory <pid> <address> <size>", "size");
+			ret = process_read_memory(pid, address, (unsigned int)size);
 		}
 	} else if (!strcmp(argv[1], "kill") || !strcmp(argv[1], "kill_tree")) {
-		if (argc != 3 || parse_pid(argv[2], &pid))
-			ret = -EINVAL;
-		else
+		const char *usage = !strcmp(argv[1], "kill") ?
+			"kicmd func process kill <pid>" :
+			"kicmd func process kill_tree <pid>";
+		if (argc < 3)
+			return cli_missing_argument(usage, "pid");
+		if (argc > 3)
+			return cli_unexpected_argument(usage, argv[3]);
+		ret = cli_parse_pid(usage, "pid", argv[2], &pid);
+		if (!ret)
 			ret = process_signal(pid, !strcmp(argv[1], "kill_tree"));
 	} else {
 		static const char *const commands[] = {
