@@ -538,8 +538,7 @@ static int open_ki(void)
 
 	ki_driver_fd = open(KI_DEVICE_PATH, O_RDWR | O_CLOEXEC);
 	if (ki_driver_fd < 0) {
-		fprintf(stderr, "%s: Kernel Informater driver is not built in\n",
-			KICMD_NAME);
+		fprintf(stderr, "Error: Kernel Informater driver is not built in\n");
 		return -1;
 	}
 
@@ -1293,10 +1292,8 @@ static int cmd_list(int argc, char **argv)
 	}
 
 	if (ret) {
-		fprintf(stderr, "Error: list%s%s: %s\n", kfunc ? " " : "", kfunc ? kfunc : "all",
-			strerror(-ret));
 		close(fd);
-		return 1;
+		return cli_result(ret);
 	}
 
 	close(fd);
