@@ -1,4 +1,5 @@
 #include "../../include/kicmd_internal.h"
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
