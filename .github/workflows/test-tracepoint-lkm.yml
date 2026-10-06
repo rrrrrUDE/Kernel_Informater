@@ -1,15 +1,21 @@
-name: Test Build GKI 5.10 Tracepoint
-
-# CI smoke-test trigger
-# validation-round-5
-# validation-round-4
+name: Test Build 5.10 (GKI 2.0) Tracepoint Hook
 
 on:
-  workflow_dispatch:
   push:
-    branches: ["main"]
+    branches:
+      - main
+    paths:
+      - '.github/workflows/test-tracepoint-lkm.yml'
+      - 'kernel/**'
+      - 'uapi/**'
   pull_request:
-    branches: ["main"]
+    branches:
+      - main
+    paths:
+      - '.github/workflows/test-tracepoint-lkm.yml'
+      - 'kernel/**'
+      - 'uapi/**'
+  workflow_dispatch:
 
 permissions:
   contents: read

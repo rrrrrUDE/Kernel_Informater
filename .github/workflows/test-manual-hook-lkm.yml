@@ -1,11 +1,21 @@
-name: Test Build GKI 5.10 Manual Hook
+name: Test Build 5.10 (GKI 2.0) Manual Hook
 
 on:
-  workflow_dispatch:
   push:
-    branches: ["main"]
+    branches:
+      - main
+    paths:
+      - '.github/workflows/test-manual-hook-lkm.yml'
+      - 'kernel/**'
+      - 'uapi/**'
   pull_request:
-    branches: ["main"]
+    branches:
+      - main
+    paths:
+      - '.github/workflows/test-manual-hook-lkm.yml'
+      - 'kernel/**'
+      - 'uapi/**'
+  workflow_dispatch:
 
 permissions:
   contents: read

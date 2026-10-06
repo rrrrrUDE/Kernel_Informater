@@ -63,6 +63,10 @@ jobs:
           test -x "$CC"
           mkdir -p "$OUT_DIR"
 
+          # Compile every module in the layered kicmd source tree.
+          mapfile -t SOURCES < <(find "$GITHUB_WORKSPACE/userspace/kicmd/src" -type f -name '*.c' | sort)
+          test "${#SOURCES[@]}" -gt 0
+
           "$CC" \
             -std=c11 \
             -O2 \
@@ -71,8 +75,9 @@ jobs:
             -D_FORTIFY_SOURCE=2 \
             -fstack-protector-strong \
             -fPIE \
+            -I"$GITHUB_WORKSPACE/userspace/kicmd/include" \
             -I"$GITHUB_WORKSPACE/uapi" \
-            "$GITHUB_WORKSPACE/userspace/kicmd/kicmd.c" \
+            "${SOURCES[@]}" \
             -Wl,-z,relro,-z,now \
             -pie \
             -o "$OUT"

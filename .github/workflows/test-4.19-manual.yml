@@ -1,14 +1,22 @@
 name: Gauguin LKM Build
 
 on:
-  workflow_dispatch:
   push:
     branches:
-      - purplemi_gauguin_lkm
+      - main
+    paths:
+      - '.github/workflows/test-4.19-manual.yml'
+      - 'kernel/**'
+      - 'uapi/**'
   pull_request:
     branches:
-      - purplemi_gauguin_lkm
-
+      - main
+    paths:
+      - '.github/workflows/test-4.19-manual.yml'
+      - 'kernel/**'
+      - 'uapi/**'
+  workflow_dispatch:
+  
 permissions:
   contents: read
 

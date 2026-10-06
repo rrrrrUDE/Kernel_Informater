@@ -198,24 +198,31 @@ int ki_hook_init(void)
 {
 	int ret;
 
-	ret = ki_process_hook_init();
-	if (ret) {
-		pr_err("KI: process lifecycle hook initialization failed: %d\n",
-		       ret);
-		return ret;
-	}
-
 #ifdef CONFIG_KI_TRACEPOINT_HOOK
+	/*
+	 * Register the syscall tracepoint backend first. This mirrors the
+	 * staged hook initialization used by KernelSU: if the backend cannot
+	 * be installed, do not leave the lifecycle hook partially active.
+	 */
 	ret = ki_tracepoint_hook_init();
 	if (ret) {
 		pr_err("KI: Tracepoint Syscall Redirect hook initialization failed: %d\n",
 		       ret);
-		ki_process_hook_exit();
 		return ret;
 	}
 #else
 	pr_info("KI: manual hook mode selected\n");
 #endif
+
+	ret = ki_process_hook_init();
+	if (ret) {
+		pr_err("KI: process lifecycle hook initialization failed: %d\n",
+		       ret);
+#ifdef CONFIG_KI_TRACEPOINT_HOOK
+		ki_tracepoint_hook_exit();
+#endif
+		return ret;
+	}
 
 	return 0;
 }
