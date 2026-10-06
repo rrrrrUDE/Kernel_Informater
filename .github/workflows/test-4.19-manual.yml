@@ -1,4 +1,4 @@
-name: Test Build Kernel 4.19 Non-GKI Manual Hook
+name: Gauguin LKM Build
 
 on:
   push:
@@ -22,68 +22,586 @@ permissions:
 
 jobs:
   build:
-    name: LKM · Android 4.19 · Manual Hook
+    name: LKM · Android 4.19 · Manual Hook · Signed
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Kernel Informater
         uses: actions/checkout@v4
 
-      - name: Checkout Android Common
+      - name: Checkout Android Kernel
         run: |
-          git clone --depth=1 --branch deprecated/android-4.19 https://android.googlesource.com/kernel/common kernel-tree
+          set -eux
+
+          git clone --depth=1 \
+            https://github.com/rrrrrUDE/android_kernel_xiaomi_gauguin.git \
+            kernel-tree
 
       - name: Install build dependencies
         run: |
+          set -eux
+
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev libelf-dev python3 clang-14 lld-14 binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+
+          sudo apt-get install -y \
+            bc \
+            bison \
+            flex \
+            libssl-dev \
+            libelf-dev \
+            python3 \
+            wget \
+            gnupg \
+            ca-certificates \
+            openssl \
+            kmod
+
+          wget -O - https://apt.llvm.org/llvm.sh | \
+            sudo bash -s -- 23
+
+          sudo apt-get install -y \
+            clang-23 \
+            lld-23 \
+            llvm-23
+
+      - name: Setup LLVM 23
+        run: |
+          set -eux
+
+          sudo ln -sf \
+            /usr/bin/clang-23 \
+            /usr/local/bin/clang
+
+          sudo ln -sf \
+            /usr/bin/clang++-23 \
+            /usr/local/bin/clang++
+
+          sudo ln -sf \
+            /usr/bin/ld.lld-23 \
+            /usr/local/bin/ld.lld
+
+          for tool in \
+            llvm-ar \
+            llvm-nm \
+            llvm-objcopy \
+            llvm-objdump \
+            llvm-readelf \
+            llvm-strip \
+            llvm-ranlib \
+            llvm-size \
+            llvm-strings \
+            llvm-cxxfilt
+          do
+            if [ -x "/usr/bin/${tool}-23" ]; then
+              sudo ln -sf \
+                "/usr/bin/${tool}-23" \
+                "/usr/local/bin/${tool}"
+            fi
+          done
+
+          echo "=== LLVM toolchain ==="
+
+          clang --version
+          clang++ --version
+          ld.lld --version
+          llvm-ar --version
+          llvm-nm --version
+          llvm-objcopy --version
+          llvm-objdump --version
+          llvm-readelf --version
+          llvm-strip --version
+
+      - name: Verify LLVM toolchain
+        run: |
+          set -eux
+
+          command -v clang
+          command -v clang++
+          command -v ld.lld
+          command -v llvm-ar
+          command -v llvm-nm
+          command -v llvm-objcopy
+          command -v llvm-objdump
+          command -v llvm-readelf
+          command -v llvm-strip
+
+          echo "=== Compiler ==="
+          clang --version | head -n 1
+
+          echo "=== Linker ==="
+          ld.lld --version | head -n 1
+
+      - name: Inspect kernel signing implementation
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          echo "=== Top-level Makefile ==="
+
+          grep -n -A8 -B4 \
+            'mod_sign_cmd' \
+            Makefile
+
+          echo "=== certs/Makefile ==="
+
+          grep -n -A85 -B5 \
+            'CONFIG_MODULE_SIG' \
+            certs/Makefile | head -n 140
+
+          echo "=== verity_dev_keys.x509 ==="
+
+          if [ -f verity_dev_keys.x509 ]; then
+            ls -lh verity_dev_keys.x509
+            file verity_dev_keys.x509
+
+            openssl x509 \
+              -in verity_dev_keys.x509 \
+              -noout \
+              -subject \
+              -issuer \
+              -serial \
+              -fingerprint \
+              -sha256 || true
+          fi
 
       - name: Integrate Kernel Informater
         run: |
           set -eux
-          mkdir -p kernel-tree/kernel/Kernel_Informater
-          cp -a kernel/. kernel-tree/kernel/Kernel_Informater/
-          printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' >> kernel-tree/Kconfig
-          printf '\nobj-$(CONFIG_KI) += Kernel_Informater/\n' >> kernel-tree/kernel/Makefile
-          rm -rf kernel-tree/kernel/Kernel_Informater/uapi
-          mkdir -p kernel-tree/kernel/Kernel_Informater/uapi
-          cp -a uapi/. kernel-tree/kernel/Kernel_Informater/uapi/
-          sh kernel-tree/kernel/Kernel_Informater/integrate.sh kernel-tree
 
-      - name: Configure Manual Hook
+          mkdir -p \
+            kernel-tree/kernel/Kernel_Informater
+
+          cp -a \
+            kernel/. \
+            kernel-tree/kernel/Kernel_Informater/
+
+          printf '\nsource "kernel/Kernel_Informater/Kconfig"\n' \
+            >> kernel-tree/Kconfig
+
+          printf '\nobj-$(CONFIG_KI) += Kernel_Informater/\n' \
+            >> kernel-tree/kernel/Makefile
+
+          rm -rf \
+            kernel-tree/kernel/Kernel_Informater/uapi
+
+          mkdir -p \
+            kernel-tree/kernel/Kernel_Informater/uapi
+
+          cp -a \
+            uapi/. \
+            kernel-tree/kernel/Kernel_Informater/uapi/
+
+          sh \
+            kernel-tree/kernel/Kernel_Informater/integrate.sh \
+            kernel-tree
+
+      - name: Configure Kernel Informater
         working-directory: kernel-tree
         run: |
-          make ARCH=arm64 defconfig
-          scripts/config --enable CONFIG_MODULES
-          scripts/config --set-val CONFIG_KI m
-          scripts/config --disable CONFIG_KI_TRACEPOINT_HOOK
-          scripts/config --disable CONFIG_KGDB
-          make ARCH=arm64 olddefconfig
-          echo "=== Effective KI configuration ==="
-          grep -E '^(CONFIG_KI|CONFIG_MODULES|CONFIG_KI_TRACEPOINT_HOOK|CONFIG_TRACEPOINTS)=' .config || true
-          grep -q '^CONFIG_KI=m$' .config
-          grep -q '^CONFIG_MODULES=y$' .config
+          set -eux
 
-      - name: Verify Manual Hook mode
+          make \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            defconfig
+
+          echo "=== Configure Kernel Informater ==="
+
+          scripts/config \
+            --enable CONFIG_MODULES
+
+          scripts/config \
+            --set-val CONFIG_KI m
+
+          scripts/config \
+            --disable CONFIG_KI_TRACEPOINT_HOOK
+
+          scripts/config \
+            --disable CONFIG_KGDB
+
+          echo "=== Configure module signing ==="
+
+          scripts/config \
+            --enable CONFIG_MODULE_SIG
+
+          scripts/config \
+            --enable CONFIG_MODULE_SIG_FORCE
+
+          scripts/config \
+            --enable CONFIG_MODULE_SIG_ALL
+
+          scripts/config \
+            --enable CONFIG_MODULE_SIG_SHA512
+
+          scripts/config \
+            --set-str \
+            CONFIG_MODULE_SIG_HASH \
+            sha512
+
+          scripts/config \
+            --set-str \
+            CONFIG_MODULE_SIG_KEY \
+            certs/signing_key.pem
+
+          make \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            olddefconfig
+
+          echo "=== KI configuration ==="
+
+          grep -E \
+            '^(CONFIG_KI=|CONFIG_KI_TRACEPOINT_HOOK=|CONFIG_MODULES=)' \
+            .config || true
+
+          echo "=== Module signing configuration ==="
+
+          grep -E \
+            '^(CONFIG_MODULE_SIG=|CONFIG_MODULE_SIG_FORCE=|CONFIG_MODULE_SIG_ALL=|CONFIG_MODULE_SIG_SHA512=|CONFIG_MODULE_SIG_HASH=|CONFIG_MODULE_SIG_KEY=)' \
+            .config
+
+          test "$(grep -c '^CONFIG_KI=m$' .config)" -eq 1
+          test "$(grep -c '^CONFIG_MODULES=y$' .config)" -eq 1
+          test "$(grep -c '^CONFIG_MODULE_SIG=y$' .config)" -eq 1
+          test "$(grep -c '^CONFIG_MODULE_SIG_FORCE=y$' .config)" -eq 1
+          test "$(grep -c '^CONFIG_MODULE_SIG_ALL=y$' .config)" -eq 1
+          test "$(grep -c '^CONFIG_MODULE_SIG_SHA512=y$' .config)" -eq 1
+
+          grep -q \
+            '^CONFIG_MODULE_SIG_HASH="sha512"$' \
+            .config
+
+          grep -q \
+            '^CONFIG_MODULE_SIG_KEY="certs/signing_key.pem"$' \
+            .config
+
+      - name: Verify Android 4.19 Manual Hook
         working-directory: kernel-tree
         run: |
-          test "$(sed -n 's/^VERSION = //p' Makefile)" -ge 3
-          ! grep -q '^CONFIG_KI_TRACEPOINT_HOOK=y$' .config
+          set -eux
 
-      - name: Prepare external module build
+          VERSION=$(sed \
+            -n 's/^VERSION = //p' \
+            Makefile)
+
+          PATCHLEVEL=$(sed \
+            -n 's/^PATCHLEVEL = //p' \
+            Makefile)
+
+          echo "Kernel VERSION: ${VERSION}"
+          echo "Kernel PATCHLEVEL: ${PATCHLEVEL}"
+
+          test "${VERSION}" -eq 4
+          test "${PATCHLEVEL}" -eq 19
+
+          if grep -q \
+            '^CONFIG_KI_TRACEPOINT_HOOK=y$' \
+            .config
+          then
+            echo "ERROR: Tracepoint Hook is enabled."
+            exit 1
+          fi
+
+      - name: Prepare kernel build system
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=aarch64-linux-gnu-gcc LD=aarch64-linux-gnu-ld \
-            AS=aarch64-linux-gnu-as AR=aarch64-linux-gnu-ar NM=aarch64-linux-gnu-nm \
-            STRIP=aarch64-linux-gnu-strip OBJCOPY=aarch64-linux-gnu-objcopy \
-            OBJDUMP=aarch64-linux-gnu-objdump HOSTCFLAGS=-fcommon modules_prepare
+          set -eux
+
+          make -j2 \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            HOSTCFLAGS=-fcommon \
+            scripts
+
+          make -j2 \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            HOSTCFLAGS=-fcommon \
+            modules_prepare
+
+          echo "=== Required host tools ==="
+
+          test -f scripts/sign-file
+          test -f scripts/extract-cert
+
+          file scripts/sign-file
+          file scripts/extract-cert
+
+      - name: Prepare module signing key and certificate
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          mkdir -p certs
+
+          echo "=== Module signing configuration ==="
+
+          grep -E \
+            '^(CONFIG_MODULE_SIG=|CONFIG_MODULE_SIG_HASH=|CONFIG_MODULE_SIG_KEY=)' \
+            .config
+
+          HASH=$(sed \
+            -n 's/^CONFIG_MODULE_SIG_HASH="\([^"]*\)".*/\1/p' \
+            .config)
+
+          KEY=$(sed \
+            -n 's/^CONFIG_MODULE_SIG_KEY="\([^"]*\)".*/\1/p' \
+            .config)
+
+          echo "Hash: ${HASH}"
+          echo "Key:  ${KEY}"
+
+          test "${HASH}" = "sha512"
+          test "${KEY}" = "certs/signing_key.pem"
+
+          echo "=== Prepare x509.genkey ==="
+
+          if [ ! -f certs/x509.genkey ]; then
+            {
+              echo "[ req ]"
+              echo "default_bits = 4096"
+              echo "distinguished_name = req_distinguished_name"
+              echo "prompt = no"
+              echo "string_mask = utf8only"
+              echo "x509_extensions = myexts"
+              echo
+              echo "[ req_distinguished_name ]"
+              echo "#O = Unspecified company"
+              echo "CN = Build time autogenerated kernel key"
+              echo "#emailAddress = unspecified.user@unspecified.company"
+              echo
+              echo "[ myexts ]"
+              echo "basicConstraints=critical,CA:FALSE"
+              echo "keyUsage=digitalSignature"
+              echo "subjectKeyIdentifier=hash"
+              echo "authorityKeyIdentifier=keyid"
+            } > certs/x509.genkey
+          fi
+
+          echo "=== Generate signing_key.pem when missing ==="
+
+          if [ ! -s certs/signing_key.pem ]; then
+            openssl req \
+              -new \
+              -nodes \
+              -utf8 \
+              -"${HASH}" \
+              -days 36500 \
+              -batch \
+              -x509 \
+              -config certs/x509.genkey \
+              -outform PEM \
+              -out certs/signing_key.pem \
+              -keyout certs/signing_key.pem
+          fi
+
+          test -s certs/signing_key.pem
+
+          echo "=== Extract signing_key.x509 ==="
+
+          scripts/extract-cert \
+            certs/signing_key.pem \
+            certs/signing_key.x509
+
+          test -s certs/signing_key.x509
+
+          echo "=== Signing files ==="
+
+          ls -lh \
+            certs/signing_key.pem \
+            certs/signing_key.x509 \
+            certs/x509.genkey
+
+          echo "=== Certificate ==="
+
+          openssl x509 \
+            -in certs/signing_key.x509 \
+            -noout \
+            -subject \
+            -issuer \
+            -serial \
+            -fingerprint \
+            -sha256
+
+      - name: Verify mod_sign_cmd
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          echo "=== mod_sign_cmd ==="
+
+          grep -n -A6 -B3 \
+            'mod_sign_cmd' \
+            Makefile
+
+          test -f \
+            certs/signing_key.pem
+
+          test -f \
+            certs/signing_key.x509
+
+          test -f \
+            scripts/sign-file
 
       - name: Build Kernel Informater
         working-directory: kernel-tree
         run: |
-          make -j2 ARCH=arm64 CC=aarch64-linux-gnu-gcc LD=aarch64-linux-gnu-ld \
-            AS=aarch64-linux-gnu-as AR=aarch64-linux-gnu-ar NM=aarch64-linux-gnu-nm \
-            STRIP=aarch64-linux-gnu-strip OBJCOPY=aarch64-linux-gnu-objcopy \
-            OBJDUMP=aarch64-linux-gnu-objdump HOSTCFLAGS=-fcommon M=kernel/Kernel_Informater modules
-          test -f kernel/Kernel_Informater/ki.ko
-          file kernel/Kernel_Informater/ki.ko
+          set -eux
 
+          KO="kernel/Kernel_Informater/ki.ko"
+
+          echo "=== Build Kernel Informater ==="
+
+          make -j2 \
+            ARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            HOSTCFLAGS=-fcommon \
+            M=kernel/Kernel_Informater \
+            modules
+
+          test -f "${KO}"
+
+          echo "=== Build completed ==="
+          ls -lh "${KO}"
+          file "${KO}"
+
+      - name: Verify Kbuild signature
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          KO="kernel/Kernel_Informater/ki.ko"
+
+          echo "=== Check Kbuild-generated signature ==="
+
+          if modinfo "${KO}" | grep -q '^sig_hashalgo:'; then
+            echo "Kbuild already signed the module."
+          else
+            echo "Kbuild did not append a signature."
+            echo "The module will be signed using the exact mod_sign_cmd."
+          fi
+
+      - name: Sign Kernel Informater when Kbuild did not append signature
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          KO="kernel/Kernel_Informater/ki.ko"
+
+          if modinfo "${KO}" | grep -q '^sig_hashalgo:'; then
+            echo "Existing Kbuild signature detected."
+            exit 0
+          fi
+
+          HASH=$(sed \
+            -n 's/^CONFIG_MODULE_SIG_HASH="\([^"]*\)".*/\1/p' \
+            .config)
+
+          KEY=$(sed \
+            -n 's/^CONFIG_MODULE_SIG_KEY="\([^"]*\)".*/\1/p' \
+            .config)
+
+          echo "=== Executing mod_sign_cmd equivalent ==="
+
+          echo "HASH=${HASH}"
+          echo "KEY=${KEY}"
+          echo "CERT=certs/signing_key.x509"
+
+          test "${HASH}" = "sha512"
+          test "${KEY}" = "certs/signing_key.pem"
+
+          scripts/sign-file \
+            "${HASH}" \
+            "${KEY}" \
+            certs/signing_key.x509 \
+            "${KO}"
+
+          test -f "${KO}"
+
+          echo "=== Manual fallback signing completed ==="
+
+      - name: Verify final signed Kernel Informater
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          KO="kernel/Kernel_Informater/ki.ko"
+
+          test -f "${KO}"
+
+          echo "=== Final module ==="
+
+          ls -lh "${KO}"
+          file "${KO}"
+
+          echo "=== modinfo ==="
+
+          modinfo "${KO}"
+
+          echo "=== Signature fields ==="
+
+          SIGNER=$(
+            modinfo "${KO}" |
+            sed -n 's/^signer:[[:space:]]*//p'
+          )
+
+          SIG_KEY=$(
+            modinfo "${KO}" |
+            sed -n 's/^sig_key:[[:space:]]*//p'
+          )
+
+          SIG_HASH=$(
+            modinfo "${KO}" |
+            sed -n 's/^sig_hashalgo:[[:space:]]*//p'
+          )
+
+          echo "signer: ${SIGNER}"
+          echo "sig_key: ${SIG_KEY}"
+          echo "sig_hashalgo: ${SIG_HASH}"
+
+          test -n "${SIGNER}"
+          test -n "${SIG_KEY}"
+          test "${SIG_HASH}" = "sha512"
+
+          echo "=== Signing certificate ==="
+
+          openssl x509 \
+            -in certs/signing_key.x509 \
+            -noout \
+            -subject \
+            -issuer \
+            -serial \
+            -fingerprint \
+            -sha256
+
+          echo "=== FINAL SIGNED MODULE VERIFIED ==="
+
+      - name: Remove private signing material
+        working-directory: kernel-tree
+        run: |
+          set -eux
+
+          rm -f \
+            certs/signing_key.pem \
+            certs/x509.genkey
+
+          echo "Private signing material removed from workspace."
+
+          test ! -e certs/signing_key.pem
+          test ! -e certs/x509.genkey
+
+          echo "Certificate retained for inspection:"
+          ls -lh certs/signing_key.x509
+
+      - name: Upload signed LKM
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-4-19-manual-hook-signed
+          path: kernel-tree/kernel/Kernel_Informater/ki.ko
+          if-no-files-found: error
+          retention-days: 30
